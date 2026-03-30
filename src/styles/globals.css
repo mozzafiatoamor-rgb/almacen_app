@@ -1,0 +1,48 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  * {
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  body {
+    @apply bg-bg text-text1 font-sans;
+    -webkit-font-smoothing: antialiased;
+    overscroll-behavior: none;
+  }
+
+  /* Custom scrollbar for dark theme */
+  ::-webkit-scrollbar {
+    width: 4px;
+    height: 4px;
+  }
+  ::-webkit-scrollbar-track { background: transparent; }
+  ::-webkit-scrollbar-thumb { background: #2a3d56; border-radius: 2px; }
+
+  /* Native select styling for dark theme */
+  select option {
+    background-color: #1e2d42;
+    color: #e0eaf4;
+  }
+
+  /* Number input — hide arrows */
+  input[type="number"]::-webkit-inner-spin-button,
+  input[type="number"]::-webkit-outer-spin-button {
+    -webkit-appearance: none;
+    margin: 0;
+  }
+  input[type="number"] { -moz-appearance: textfield; }
+
+  /* Date input dark */
+  input[type="date"]::-webkit-calendar-picker-indicator {
+    filter: invert(0.6);
+  }
+}
+
+@layer utilities {
+  .safe-bottom {
+    padding-bottom: env(safe-area-inset-bottom);
+  }
+}

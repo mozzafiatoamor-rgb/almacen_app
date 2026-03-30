@@ -1,0 +1,124 @@
+/**
+ * Read-only access to Google Sheets via Sheets API v4 (API Key).
+ * Writes go through appscript.ts.
+ */
+import { getConfig, SHEET_NAMES } from './config'
+import { normDate } from '../utils/dates'
+import type {
+  Producto,
+  Movimiento,
+  Merma,
+  Usuario,
+  BitacoraEntry,
+} from './types'
+
+async function readRange(sheet: string, range: string): Promise<string[][]> {
+  const { sheetId, apiKey } = getConfig()
+  const url = `https://sheets.googleapis.com/v4/spreadsheets/${sheetId}/values/${encodeURIComponent(sheet)}!${range}?key=${apiKey}`
+  const res = await fetch(url)
+  if (!res.ok) {
+    const text = await res.text()
+    throw new Error(`Sheets API ${res.status}: ${text}`)
+  }
+  const data = await res.json()
+  return (data.values as string[][] | undefined) ?? []
+}
+
+// ─── Catálogo ─────────────────────────────────────────────────────────────────
+
+export async function fetchCatalogo(): Promise<Producto[]> {
+  const rows = await readRange(SHEET_NAMES.catalogo, 'A2:I500')
+  return rows
+    .map((r, i) => ({
+      id:          r[0] ?? '',
+      categoria:   r[1] ?? '',
+      producto:    r[2] ?? '',
+      unidad:      r[3] ?? '',
+      stockMinimo: parseInt(r[4]) || 0,
+      stockActual: parseInt(r[5]) || 0,
+      activo:      (r[6] ?? 'SI').toString().trim().toUpperCase(),
+      proveedor:   r[7] ?? 'Sin asignar',
+      pzaPaq:      parseInt(r[8]) || 1,
+      _row:        i + 2,
+    }))
+    .filter(p => p.producto && p.activo !== 'NO')
+}
+
+// ─── Movimientos ──────────────────────────────────────────────────────────────
+
+export async function fetchMovimientos(): Promise<Movimiento[]> {
+  const rows = await readRange(SHEET_NAMES.movimientos, 'A2:J3000')
+  return rows
+    .map((r, i) => ({
+      id:          r[0] ?? '',
+      fecha:       normDate(r[1] ?? ''),
+      hora:        r[2] ?? '',
+      tipo:        (r[3] ?? 'Entrada') as 'Entrada' | 'Salida',
+      categoria:   r[4] ?? '',
+      producto:    r[5] ?? '',
+      cantidad:    parseInt(r[6]) || 0,
+      motivo:      r[7] ?? '',
+      responsable: r[8] ?? '',
+      notas:       r[9] ?? '',
+      _row:        i + 2,
+    }))
+    .filter(m => m.producto)
+    .reverse()
+}
+
+// ─── Mermas ───────────────────────────────────────────────────────────────────
+
+export async function fetchMermas(): Promise<Merma[]> {
+  const rows = await readRange(SHEET_NAMES.mermas, 'A2:I2000')
+  return rows
+    .map((r, i) => ({
+      id:          r[0] ?? '',
+      fecha:       normDate(r[1] ?? ''),
+      hora:        r[2] ?? '',
+      categoria:   r[3] ?? '',
+      producto:    r[4] ?? '',
+      cantidad:    parseInt(r[5]) || 0,
+      motivo:      r[6] ?? '',
+      responsable: r[7] ?? '',
+      notas:       r[8] ?? '',
+      _row:        i + 2,
+    }))
+    .filter(m => m.producto)
+    .reverse()
+}
+
+// ─── Usuarios ─────────────────────────────────────────────────────────────────
+
+export async function fetchUsuarios(): Promise<Usuario[]> {
+  const rows = await readRange(SHEET_NAMES.usuarios, 'A2:F50')
+  return rows
+    .map((r, i) => ({
+      id:      r[0] ?? '',
+      usuario: r[1] ?? '',
+      pin:     r[2] ?? '',       // Column C is now PIN (was password)
+      nombre:  r[3] ?? '',
+      rol:     ((r[4] ?? 'almacenista').toLowerCase()) as Usuario['rol'],
+      activo:  (r[5] ?? 'SI').toString().trim().toUpperCase(),
+      _row:    i + 2,
+    }))
+    .filter(u => u.usuario && u.activo !== 'NO')
+}
+
+// ─── Bitácora ─────────────────────────────────────────────────────────────────
+
+export async function fetchBitacora(): Promise<BitacoraEntry[]> {
+  const rows = await readRange(SHEET_NAMES.bitacora, 'A2:F1500')
+  return rows
+    .map((r, i) => ({
+      fecha:   normDate(r[0] ?? ''),
+      hora:    r[1] ?? '',
+      usuario: r[2] ?? '',
+      accion:  r[3] ?? '',
+      detalle: r[4] ?? '',
+      tipo:    r[5] ?? '',
+      _row:    i + 2,
+    }))
+    .filter(b => b.accion)
+    .reverse()
+    .slice(0, 500)
+}
