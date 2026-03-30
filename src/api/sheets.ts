@@ -10,6 +10,7 @@ import type {
   Merma,
   Usuario,
   BitacoraEntry,
+  Gasto,
 } from './types'
 
 async function readRange(sheet: string, range: string): Promise<string[][]> {
@@ -27,19 +28,21 @@ async function readRange(sheet: string, range: string): Promise<string[][]> {
 // ─── Catálogo ─────────────────────────────────────────────────────────────────
 
 export async function fetchCatalogo(): Promise<Producto[]> {
-  const rows = await readRange(SHEET_NAMES.catalogo, 'A2:I500')
+  const rows = await readRange(SHEET_NAMES.catalogo, 'A2:K500')
   return rows
     .map((r, i) => ({
-      id:          r[0] ?? '',
-      categoria:   r[1] ?? '',
-      producto:    r[2] ?? '',
-      unidad:      r[3] ?? '',
-      stockMinimo: parseInt(r[4]) || 0,
-      stockActual: parseInt(r[5]) || 0,
-      activo:      (r[6] ?? 'SI').toString().trim().toUpperCase(),
-      proveedor:   r[7] ?? 'Sin asignar',
-      pzaPaq:      parseInt(r[8]) || 1,
-      _row:        i + 2,
+      id:           r[0] ?? '',
+      categoria:    r[1] ?? '',
+      producto:     r[2] ?? '',
+      unidad:       r[3] ?? '',
+      stockMinimo:  parseInt(r[4]) || 0,
+      stockActual:  parseInt(r[5]) || 0,
+      activo:       (r[6] ?? 'SI').toString().trim().toUpperCase(),
+      proveedor:    r[7] ?? 'Sin asignar',
+      pzaPaq:       parseInt(r[8]) || 1,
+      codigoBarras: r[9] ?? '',
+      precioRef:    parseFloat(r[10]) || 0,
+      _row:         i + 2,
     }))
     .filter(p => p.producto && p.activo !== 'NO')
 }
@@ -47,7 +50,7 @@ export async function fetchCatalogo(): Promise<Producto[]> {
 // ─── Movimientos ──────────────────────────────────────────────────────────────
 
 export async function fetchMovimientos(): Promise<Movimiento[]> {
-  const rows = await readRange(SHEET_NAMES.movimientos, 'A2:J3000')
+  const rows = await readRange(SHEET_NAMES.movimientos, 'A2:K3000')
   return rows
     .map((r, i) => ({
       id:          r[0] ?? '',
@@ -60,6 +63,7 @@ export async function fetchMovimientos(): Promise<Movimiento[]> {
       motivo:      r[7] ?? '',
       responsable: r[8] ?? '',
       notas:       r[9] ?? '',
+      precioUnit:  parseFloat(r[10]) || 0,
       _row:        i + 2,
     }))
     .filter(m => m.producto)
@@ -102,6 +106,28 @@ export async function fetchUsuarios(): Promise<Usuario[]> {
       _row:    i + 2,
     }))
     .filter(u => u.usuario && u.activo !== 'NO')
+}
+
+// ─── Gastos ───────────────────────────────────────────────────────────────────
+
+export async function fetchGastos(): Promise<Gasto[]> {
+  const rows = await readRange(SHEET_NAMES.gastos, 'A2:J2000')
+  return rows
+    .map((r, i) => ({
+      id:          r[0] ?? '',
+      fecha:       normDate(r[1] ?? ''),
+      hora:        r[2] ?? '',
+      producto:    r[3] ?? '',
+      categoria:   r[4] ?? '',
+      cantidad:    parseInt(r[5]) || 0,
+      precioUnit:  parseFloat(r[6]) || 0,
+      total:       parseFloat(r[7]) || 0,
+      proveedor:   r[8] ?? '',
+      responsable: r[9] ?? '',
+      _row:        i + 2,
+    }))
+    .filter(g => g.producto)
+    .reverse()
 }
 
 // ─── Bitácora ─────────────────────────────────────────────────────────────────

@@ -16,7 +16,8 @@
     "dexie-react-hooks": "^1.1.7",
     "framer-motion": "^11.5.4",
     "recharts": "^2.13.0",
-    "clsx": "^2.1.1"
+    "clsx": "^2.1.1",
+    "html5-qrcode": "^2.3.8"
   },
   "devDependencies": {
     "@types/react": "^18.3.5",

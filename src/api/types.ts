@@ -10,6 +10,8 @@ export interface Producto {
   activo: string
   proveedor: string
   pzaPaq: number
+  codigoBarras: string   // col J — EAN-13/EAN-8
+  precioRef: number      // col K — last price paid per unit
   _row: number
 }
 
@@ -24,6 +26,21 @@ export interface Movimiento {
   motivo: string
   responsable: string
   notas: string
+  precioUnit: number     // col K — optional unit price (Entradas only)
+  _row: number
+}
+
+export interface Gasto {
+  id: string
+  fecha: string
+  hora: string
+  producto: string
+  categoria: string
+  cantidad: number
+  precioUnit: number
+  total: number
+  proveedor: string
+  responsable: string
   _row: number
 }
 
@@ -68,6 +85,7 @@ export interface StockBajo {
   stockMinimo: number
   faltante: number
   proveedor: string
+  precioRef: number      // for budget estimate
 }
 
 // ─── App config stored in localStorage ────────────────────────────────────────
@@ -88,6 +106,8 @@ export interface CartItemMov {
   motivo: string
   notas: string
   notaConv: string   // e.g. "3 paq x6"
+  precioUnit: number // optional unit price for Entradas
+  proveedor: string  // producto's proveedor (for Gastos)
 }
 
 export interface CartItemMerma {
@@ -109,6 +129,7 @@ export type Tab =
   | 'catalogo'
   | 'bitacora'
   | 'reportes'
+  | 'gastos'
   | 'usuarios'
 
 // ─── Modal ────────────────────────────────────────────────────────────────────

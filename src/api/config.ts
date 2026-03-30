@@ -30,4 +30,5 @@ export const SHEET_NAMES = {
   mermas:      '⚠️ Mermas',
   usuarios:    '👤 Usuarios',
   bitacora:    '📜 Bitácora',
+  gastos:      '💰 Gastos',
 } as const

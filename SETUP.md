@@ -1,4 +1,4 @@
-# Almacén Mozzafiato v2.0 — Guía de Setup
+# Almacén Mozzafiato v2.1 — Guía de Setup
 
 ## Prerrequisitos
 - Node.js 20+
@@ -29,10 +29,15 @@ La columna C de la hoja **👤 Usuarios** ahora es **PIN** (antes era Password).
 1. Abre tu Google Sheet → Extensiones → Apps Script
 2. Reemplaza todo el contenido con el archivo `Code.gs` de este proyecto
 3. Guarda (Ctrl+S)
-4. Publica → Implementar como app web:
+4. **Ejecuta `setupV21` una sola vez** (esto crea la hoja Gastos y agrega columnas J y K al Catálogo):
+   - En el editor de Apps Script, selecciona la función `setupV21` en el menú desplegable
+   - Haz clic en ▶ Ejecutar
+   - Autoriza los permisos cuando se soliciten
+5. Publica → Implementar como app web:
    - Ejecutar como: **Yo**
    - Quién tiene acceso: **Cualquier persona**
-5. Copia la URL de implementación — la necesitarás en el Setup de la app
+   - Si ya tenías una versión anterior, haz clic en **Nueva implementación** (no editar la existente)
+6. Copia la nueva URL de implementación — la necesitarás en el Setup de la app
 
 ---
 
@@ -133,6 +138,38 @@ Si el stock queda desincronizado, desde la app (como admin):
 
 ---
 
+## Nuevas funciones v2.1
+
+### 📷 Escáner de códigos de barras
+- Disponible en Entradas, Salidas y en el Catálogo (asignar código a un producto)
+- Usa la cámara trasera del celular para leer EAN-13 y EAN-8
+- El botón 📷 aparece junto al selector de producto
+- Para asignar: ve a Catálogo → editar producto → escanear con el botón 📷
+
+### ☰ Navegación Speed Dial
+- Un único botón circular (☰) en la parte inferior central
+- Al tocarlo, todos los módulos emergen hacia arriba como botones circulares con animación
+- Toca fuera o selecciona un módulo para cerrar el menú
+- El botón muestra el módulo activo en una etiqueta pequeña arriba
+
+### 💰 Módulo de Gastos
+- Al registrar una **Entrada**, opcionalmente ingresa el precio unitario
+- Ese precio se convierte en el **precio de referencia** del producto (col K en Catálogo)
+- La **Lista de Compras** muestra el presupuesto estimado (`faltante × precioRef`) por producto y el total
+- En la **Lista de Compras**, cada producto tiene botón **📥 Comprar** para registrar la entrada desde la tienda sin salir de la lista (incluye precio)
+- La hoja **💰 Gastos** registra cada compra con precio: fecha, producto, cantidad, precio/u, total, proveedor
+- La **página Gastos** muestra gráficas: gasto diario (14 días), por categoría (pie chart), top productos, y tabla de registros con filtros
+
+### Estructura del Google Sheet (columnas nuevas)
+| Hoja | Col J | Col K |
+|------|-------|-------|
+| 📦 Catálogo | codigoBarras | precioRef |
+| 📥 Movimientos | — | precioUnit |
+
+La hoja **💰 Gastos** se crea automáticamente con `setupV21`.
+
+---
+
 ## Estructura del proyecto
 
 ```
@@ -140,12 +177,16 @@ mozzafiato-almacen/
 ├── src/
 │   ├── api/          # Comunicación con Sheets API y Apps Script
 │   ├── auth/         # Login con PIN, contexto de autenticación
-│   ├── components/   # Layout, formularios, componentes compartidos
+│   ├── components/
+│   │   ├── forms/    # MovimientoForm, MermaForm, ProductoForm (con escáner)
+│   │   ├── layout/   # StatusBar, BottomNav (Speed Dial), Modal
+│   │   └── shared/   # BarcodeScanner, ProductAutocomplete, Toast…
 │   ├── hooks/        # React Query hooks, offline sync, toast
-│   ├── pages/        # Las 9 pantallas de la app
+│   ├── pages/        # 10 pantallas: Home, Movimientos, Inventario, Compras,
+│   │                 #   Mermas, Catálogo, Bitácora, Reportes, Gastos, Usuarios
 │   ├── store/        # Dexie (IndexedDB) para cola offline
 │   └── utils/        # Fechas, IDs
 ├── public/           # logo.png, manifest PWA
-├── Code.gs           # Backend Google Apps Script
+├── Code.gs           # Backend Google Apps Script v2.1
 └── .github/          # GitHub Actions deploy workflow
 ```

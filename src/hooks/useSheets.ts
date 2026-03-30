@@ -9,6 +9,7 @@ import {
   fetchMermas,
   fetchUsuarios,
   fetchBitacora,
+  fetchGastos,
 } from '../api/sheets'
 import { today } from '../utils/dates'
 import type { StockBajo, Producto } from '../api/types'
@@ -19,6 +20,7 @@ const STALE_MOVIMIENTOS = 2 * 60_000   // 2 min
 const STALE_MERMAS      = 2 * 60_000
 const STALE_USUARIOS    = 10 * 60_000  // 10 min
 const STALE_BITACORA    = 5 * 60_000
+const STALE_GASTOS      = 2 * 60_000
 
 export function useCatalogo() {
   return useQuery({
@@ -60,6 +62,14 @@ export function useBitacora() {
   })
 }
 
+export function useGastos() {
+  return useQuery({
+    queryKey:  ['gastos'],
+    queryFn:   fetchGastos,
+    staleTime: STALE_GASTOS,
+  })
+}
+
 // ─── Derived data ─────────────────────────────────────────────────────────────
 
 export function useStockBajo(): StockBajo[] {
@@ -74,6 +84,7 @@ export function useStockBajo(): StockBajo[] {
       stockMinimo: p.stockMinimo,
       faltante:    p.stockMinimo - p.stockActual,
       proveedor:   p.proveedor,
+      precioRef:   p.precioRef,
     }))
 }
 
@@ -117,6 +128,7 @@ export function useInvalidate() {
     mermas:      () => qc.invalidateQueries({ queryKey: ['mermas'] }),
     usuarios:    () => qc.invalidateQueries({ queryKey: ['usuarios'] }),
     bitacora:    () => qc.invalidateQueries({ queryKey: ['bitacora'] }),
+    gastos:      () => qc.invalidateQueries({ queryKey: ['gastos'] }),
     all:         () => qc.invalidateQueries(),
   }
 }

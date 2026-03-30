@@ -24,6 +24,7 @@ import MermasPage      from './pages/MermasPage'
 import CatalogoPage    from './pages/CatalogoPage'
 import BitacoraPage    from './pages/BitacoraPage'
 import ReportesPage    from './pages/ReportesPage'
+import GastosPage      from './pages/GastosPage'
 import UsuariosPage    from './pages/UsuariosPage'
 
 import { useCatalogo, useMovimientos, useMermas } from './hooks/useSheets'
@@ -128,6 +129,7 @@ function MainApp() {
             {tab === 'catalogo'    && <CatalogoPage />}
             {tab === 'bitacora'    && <BitacoraPage />}
             {tab === 'reportes'    && <ReportesPage />}
+            {tab === 'gastos'      && <GastosPage />}
             {tab === 'usuarios'    && <UsuariosPage />}
           </motion.div>
         </AnimatePresence>

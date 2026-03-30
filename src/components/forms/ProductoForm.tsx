@@ -7,6 +7,7 @@ import { appendProducto, appendBitacora, deleteRow } from '../../api/appscript'
 import { nextId } from '../../utils/ids'
 import { nowDateTime } from '../../utils/dates'
 import { SHEET_NAMES } from '../../api/config'
+import BarcodeScanner from '../shared/BarcodeScanner'
 
 const UNIDADES = ['pza', 'kg', 'lt', 'paq', 'caja', 'bolsa', 'bote', 'rollo', 'juego']
 const BASE_PROVEEDORES = ['Sams', 'Costco', 'Pacsa Deli', 'Sin asignar']
@@ -26,16 +27,32 @@ export default function ProductoForm({ catalogo, editProd, onClose }: Props) {
   const cats  = [...new Set(catalogo.map(p => p.categoria))].sort()
   const provs = [...new Set([...BASE_PROVEEDORES, ...catalogo.map(p => p.proveedor)])].sort()
 
-  const [cat,      setCat]      = useState(editProd?.categoria ?? '')
-  const [newCat,   setNewCat]   = useState('')
-  const [nombre,   setNombre]   = useState(editProd?.producto ?? '')
-  const [unidad,   setUnidad]   = useState(editProd?.unidad ?? 'pza')
-  const [minimo,   setMinimo]   = useState(String(editProd?.stockMinimo ?? 0))
-  const [stock,    setStock]    = useState(String(editProd?.stockActual ?? 0))
-  const [prov,     setProv]     = useState(editProd?.proveedor ?? 'Sin asignar')
-  const [newProv,  setNewProv]  = useState('')
-  const [pzaPaq,   setPzaPaq]   = useState(String(editProd?.pzaPaq ?? 1))
-  const [saving,   setSaving]   = useState(false)
+  const [cat,           setCat]          = useState(editProd?.categoria ?? '')
+  const [newCat,        setNewCat]       = useState('')
+  const [nombre,        setNombre]       = useState(editProd?.producto ?? '')
+  const [unidad,        setUnidad]       = useState(editProd?.unidad ?? 'pza')
+  const [minimo,        setMinimo]       = useState(String(editProd?.stockMinimo ?? 0))
+  const [stock,         setStock]        = useState(String(editProd?.stockActual ?? 0))
+  const [prov,          setProv]         = useState(editProd?.proveedor ?? 'Sin asignar')
+  const [newProv,       setNewProv]      = useState('')
+  const [pzaPaq,        setPzaPaq]       = useState(String(editProd?.pzaPaq ?? 1))
+  const [codigoBarras,  setCodigoBarras] = useState(editProd?.codigoBarras ?? '')
+  const [scanning,      setScanning]     = useState(false)
+  const [saving,        setSaving]       = useState(false)
+
+  function handleBarcodeDetected(code: string) {
+    setScanning(false)
+    // Check if already assigned to another product
+    const existing = catalogo.find(
+      p => p.codigoBarras === code && p.producto !== editProd?.producto
+    )
+    if (existing) {
+      toast(`Código ya asignado a: ${existing.producto}`, 'error')
+    } else {
+      setCodigoBarras(code)
+      toast(`✅ Código ${code} escaneado`)
+    }
+  }
 
   async function submit(e: FormEvent) {
     e.preventDefault()
@@ -59,11 +76,12 @@ export default function ProductoForm({ catalogo, editProd, onClose }: Props) {
       parseInt(stock)  || 0,
       'SI', finalProv,
       parseInt(pzaPaq) || 1,
+      codigoBarras.trim(),
+      editProd?.precioRef ?? 0,
     ]
 
     try {
       if (isEdit && editProd) {
-        // delete old row + append updated (same approach as original)
         await deleteRow(SHEET_NAMES.catalogo, editProd._row)
         await appendProducto(values)
         await appendBitacora([n.date, n.time, user?.nombre ?? '', 'Producto editado', `${editProd.producto} → ${nombre}`, 'edit']).catch(() => {})
@@ -83,80 +101,122 @@ export default function ProductoForm({ catalogo, editProd, onClose }: Props) {
   }
 
   return (
-    <form onSubmit={submit}>
-      <h2 className="text-lg font-bold mb-4">{isEdit ? '✏️ Editar' : '➕ Nuevo'} Producto</h2>
+    <>
+      {scanning && (
+        <BarcodeScanner
+          onDetected={handleBarcodeDetected}
+          onClose={() => setScanning(false)}
+        />
+      )}
 
-      <Field label="Categoría">
-        <select value={cat} onChange={e => setCat(e.target.value)} className={input}>
-          <option value="">Seleccionar…</option>
-          {cats.map(c => <option key={c} value={c}>{c}</option>)}
-          <option value="__new__">＋ Nueva categoría…</option>
-        </select>
-        {cat === '__new__' && (
-          <input value={newCat} onChange={e => setNewCat(e.target.value)}
-            placeholder="Nombre de la categoría" className={`${input} mt-1.5`} />
-        )}
-      </Field>
+      <form onSubmit={submit}>
+        <h2 className="text-lg font-bold mb-4">{isEdit ? '✏️ Editar' : '➕ Nuevo'} Producto</h2>
 
-      <Field label="Nombre del producto">
-        <input value={nombre} onChange={e => setNombre(e.target.value)}
-          placeholder="Ej. Café en grano" className={input} required />
-      </Field>
-
-      <div className="grid grid-cols-2 gap-2">
-        <Field label="Unidad">
-          <select value={unidad} onChange={e => setUnidad(e.target.value)} className={input}>
-            {UNIDADES.map(u => <option key={u} value={u}>{u}</option>)}
+        <Field label="Categoría">
+          <select value={cat} onChange={e => setCat(e.target.value)} className={inp}>
+            <option value="">Seleccionar…</option>
+            {cats.map(c => <option key={c} value={c}>{c}</option>)}
+            <option value="__new__">＋ Nueva categoría…</option>
           </select>
+          {cat === '__new__' && (
+            <input value={newCat} onChange={e => setNewCat(e.target.value)}
+              placeholder="Nombre de la categoría" className={`${inp} mt-1.5`} />
+          )}
         </Field>
-        <Field label="Piezas/paquete">
-          <input type="number" inputMode="numeric" min="1" value={pzaPaq}
-            onChange={e => setPzaPaq(e.target.value)} className={input} />
+
+        <Field label="Nombre del producto">
+          <input value={nombre} onChange={e => setNombre(e.target.value)}
+            placeholder="Ej. Café en grano" className={inp} required />
         </Field>
-      </div>
 
-      <div className="grid grid-cols-2 gap-2">
-        <Field label="Stock mínimo">
-          <input type="number" inputMode="numeric" min="0" value={minimo}
-            onChange={e => setMinimo(e.target.value)} className={input} />
+        <div className="grid grid-cols-2 gap-2">
+          <Field label="Unidad">
+            <select value={unidad} onChange={e => setUnidad(e.target.value)} className={inp}>
+              {UNIDADES.map(u => <option key={u} value={u}>{u}</option>)}
+            </select>
+          </Field>
+          <Field label="Piezas/paquete">
+            <input type="number" inputMode="numeric" min="1" value={pzaPaq}
+              onChange={e => setPzaPaq(e.target.value)} className={inp} />
+          </Field>
+        </div>
+
+        <div className="grid grid-cols-2 gap-2">
+          <Field label="Stock mínimo">
+            <input type="number" inputMode="numeric" min="0" value={minimo}
+              onChange={e => setMinimo(e.target.value)} className={inp} />
+          </Field>
+          <Field label="Stock actual">
+            <input type="number" inputMode="numeric" min="0" value={stock}
+              onChange={e => setStock(e.target.value)} className={inp} />
+          </Field>
+        </div>
+
+        <Field label="Proveedor">
+          <select value={prov} onChange={e => setProv(e.target.value)} className={inp}>
+            {provs.map(p => <option key={p} value={p}>{p}</option>)}
+            <option value="__new__">＋ Otro proveedor…</option>
+          </select>
+          {prov === '__new__' && (
+            <input value={newProv} onChange={e => setNewProv(e.target.value)}
+              placeholder="Nombre del proveedor" className={`${inp} mt-1.5`} />
+          )}
         </Field>
-        <Field label="Stock actual">
-          <input type="number" inputMode="numeric" min="0" value={stock}
-            onChange={e => setStock(e.target.value)} className={input} />
+
+        {/* Código de barras */}
+        <Field label="Código de barras (EAN-13 / EAN-8)">
+          <div className="flex gap-2">
+            <input
+              value={codigoBarras}
+              onChange={e => setCodigoBarras(e.target.value)}
+              placeholder="Escanea o escribe el código"
+              inputMode="numeric"
+              className={`${inp} flex-1`}
+            />
+            <button
+              type="button"
+              onClick={() => setScanning(true)}
+              className="w-11 h-11 rounded-card bg-surface2 border border-surface3 flex items-center justify-center text-lg flex-none"
+              title="Escanear"
+            >
+              📷
+            </button>
+          </div>
+          {codigoBarras && (
+            <div className="mt-1.5 flex items-center justify-between">
+              <span className="text-[11px] font-mono text-accent">{codigoBarras}</span>
+              <button
+                type="button"
+                onClick={() => setCodigoBarras('')}
+                className="text-[11px] text-red"
+              >
+                Quitar
+              </button>
+            </div>
+          )}
         </Field>
-      </div>
 
-      <Field label="Proveedor">
-        <select value={prov} onChange={e => setProv(e.target.value)} className={input}>
-          {provs.map(p => <option key={p} value={p}>{p}</option>)}
-          <option value="__new__">＋ Otro proveedor…</option>
-        </select>
-        {prov === '__new__' && (
-          <input value={newProv} onChange={e => setNewProv(e.target.value)}
-            placeholder="Nombre del proveedor" className={`${input} mt-1.5`} />
-        )}
-      </Field>
+        <p className="text-[11px] text-text2 mb-4">
+          Si el producto se compra en paquetes (ej. 6 jabones/caja), pon 6 en Piezas/paquete para que la conversión sea automática al registrar entradas.
+        </p>
 
-      <p className="text-[11px] text-text2 mb-4">
-        Si el producto se compra en paquetes (ej. 6 jabones/caja), pon 6 en Piezas/paquete para que la conversión sea automática al registrar entradas.
-      </p>
-
-      <button
-        type="submit"
-        disabled={saving}
-        className="w-full bg-accent text-white font-semibold py-3 rounded-card disabled:opacity-40 mb-2"
-      >
-        {saving ? 'Guardando…' : (isEdit ? '💾 Guardar cambios' : '✅ Agregar producto')}
-      </button>
-      <button type="button" onClick={onClose}
-        className="w-full bg-surface2 text-text1 font-semibold py-3 rounded-card">
-        Cancelar
-      </button>
-    </form>
+        <button
+          type="submit"
+          disabled={saving}
+          className="w-full bg-accent text-white font-semibold py-3 rounded-card disabled:opacity-40 mb-2"
+        >
+          {saving ? 'Guardando…' : (isEdit ? '💾 Guardar cambios' : '✅ Agregar producto')}
+        </button>
+        <button type="button" onClick={onClose}
+          className="w-full bg-surface2 text-text1 font-semibold py-3 rounded-card">
+          Cancelar
+        </button>
+      </form>
+    </>
   )
 }
 
-const input = 'w-full bg-surface2 border border-surface3 rounded-card px-3.5 py-3 text-sm text-text1 outline-none focus:border-accent font-sans'
+const inp = 'w-full bg-surface2 border border-surface3 rounded-card px-3.5 py-3 text-sm text-text1 outline-none focus:border-accent font-sans'
 
 function Field({ label, children }: { label: string; children: React.ReactNode }) {
   return (

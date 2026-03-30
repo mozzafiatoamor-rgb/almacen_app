@@ -55,6 +55,10 @@ export async function appendUsuario(values: (string | number)[]): Promise<void> 
   await appendRow(SHEET_NAMES.usuarios, values)
 }
 
+export async function appendGasto(values: (string | number)[]): Promise<void> {
+  await appendRow(SHEET_NAMES.gastos, values)
+}
+
 // ─── Stock reconciliation ─────────────────────────────────────────────────────
 
 export async function reconcileStock(): Promise<void> {
