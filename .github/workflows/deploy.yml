@@ -28,6 +28,15 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
+      - name: Copy logo to public
+        run: |
+          if [ -f logo.png ]; then
+            cp logo.png public/logo.png
+            echo "logo.png copiado a public/"
+          else
+            echo "logo.png no encontrado en raíz, usando el existente en public/"
+          fi
+
       - name: Build
         run: npm run build
         env:
