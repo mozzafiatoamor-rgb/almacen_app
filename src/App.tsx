@@ -29,6 +29,7 @@ import UsuariosPage    from './pages/UsuariosPage'
 
 import { useCatalogo, useMovimientos, useMermas } from './hooks/useSheets'
 import { getConfig, isConfigured, saveConfig } from './api/config'
+import { useTabHistory } from './hooks/useTabHistory'
 
 import type { Tab, ModalType } from './api/types'
 import { useAuth as useAuthHook } from './auth/AuthContext'
@@ -86,7 +87,7 @@ function MainApp() {
   const toast            = useToast()
   const invalidate       = useInvalidate()
 
-  const [tab,       setTab]       = useState<Tab>('home')
+  const { tab, navigate: setTab } = useTabHistory('home')
   const [modal,     setModal]     = useState<ModalType>(null)
 
   const { data: catalogo    = [] } = useCatalogo()

@@ -2,8 +2,7 @@ import { useState, useMemo } from 'react'
 import { useCatalogo, useInvalidate, getCategoriasFromCatalogo } from '../hooks/useSheets'
 import { useAuth } from '../auth/AuthContext'
 import { useToast } from '../hooks/useToast'
-import { deleteRow } from '../api/appscript'
-import { appendBitacora } from '../api/appscript'
+import { deleteRow, appendBitacora } from '../api/appscript'
 import { nowDateTime } from '../utils/dates'
 import { SHEET_NAMES } from '../api/config'
 import SearchBar from '../components/shared/SearchBar'
@@ -23,6 +22,7 @@ export default function CatalogoPage() {
   const [catF,     setCatF]     = useState('todos')
   const [modal,    setModal]    = useState<'add' | 'edit' | null>(null)
   const [editProd, setEditProd] = useState<Producto | null>(null)
+  const [deleting, setDeleting] = useState<string | null>(null)
 
   const cats = useMemo(() => getCategoriasFromCatalogo(catalogo), [catalogo])
 
@@ -34,8 +34,10 @@ export default function CatalogoPage() {
     )
   }, [catalogo, query, catF])
 
-  async function handleDelete(p: Producto) {
-    if (!confirm(`🗑️ ¿Eliminar "${p.producto}"?`)) return
+  async function handleDelete(e: React.MouseEvent, p: Producto) {
+    e.stopPropagation()
+    if (!confirm(`🗑️ ¿Eliminar "${p.producto}"?\nEsta acción no se puede deshacer.`)) return
+    setDeleting(p.id)
     try {
       await deleteRow(SHEET_NAMES.catalogo, p._row)
       const n = nowDateTime()
@@ -44,11 +46,12 @@ export default function CatalogoPage() {
       invalidate.catalogo()
     } catch {
       toast('Error al eliminar', 'error')
+    } finally {
+      setDeleting(null)
     }
   }
 
   function openEdit(p: Producto) {
-    if (!isAdmin) return
     setEditProd(p)
     setModal('edit')
   }
@@ -75,29 +78,46 @@ export default function CatalogoPage() {
       {filtered.length === 0
         ? <EmptyState icon="📋" message="Sin productos" />
         : filtered.map(p => (
-            <div
-              key={p.id}
-              onClick={() => openEdit(p)}
-              className={`flex items-center py-3 border-b border-surface3/50 gap-3 relative ${isAdmin ? 'cursor-pointer' : ''}`}
-            >
-              <div className="flex-1" style={{ paddingRight: isAdmin ? '60px' : '0' }}>
+            <div key={p.id} className="flex items-center py-3 border-b border-surface3/50 gap-2">
+              {/* Main info — tappable for edit */}
+              <div
+                onClick={() => isAdmin && openEdit(p)}
+                className={`flex-1 min-w-0 ${isAdmin ? 'cursor-pointer' : ''}`}
+              >
                 <div className="text-sm font-semibold text-text1">{p.producto}</div>
+                <div className="text-xs text-text2 truncate">
+                  {p.categoria} · {p.unidad} · 🏪 {p.proveedor}
+                </div>
                 <div className="text-xs text-text2">
-                  {p.categoria} · {p.unidad} · 🏪 {p.proveedor} · Stock: {p.stockActual} · Mín: {p.stockMinimo}
-                  {p.pzaPaq > 1 && ` · 📦 ${p.pzaPaq} pzas/paq`}
+                  Stock: <span className={p.stockActual < p.stockMinimo ? 'text-red font-semibold' : 'text-green'}>{p.stockActual}</span>
+                  {' '}· Mín: {p.stockMinimo}
+                  {p.pzaPaq > 1 && ` · 📦 ${p.pzaPaq}/paq`}
+                  {p.precioRef > 0 && ` · $${p.precioRef.toFixed(2)}`}
+                  {p.codigoBarras && ` · 🔖 ${p.codigoBarras}`}
                 </div>
               </div>
+
+              {/* Action buttons — clearly separated */}
               {isAdmin && (
-                <>
-                  <span className="text-text2 text-base mr-7">✏️</span>
+                <div className="flex items-center gap-1 flex-none">
+                  {/* Edit button */}
                   <button
-                    onClick={e => { e.stopPropagation(); handleDelete(p) }}
-                    className="absolute right-0 top-1/2 -translate-y-1/2 p-2 text-red opacity-50 hover:opacity-100 transition-opacity"
-                    aria-label="Eliminar"
+                    onClick={() => openEdit(p)}
+                    className="w-10 h-10 flex items-center justify-center rounded-xl bg-surface2 text-text2 active:bg-surface3 transition-colors"
+                    aria-label={`Editar ${p.producto}`}
                   >
-                    🗑️
+                    ✏️
                   </button>
-                </>
+                  {/* Delete button — distinct red tint */}
+                  <button
+                    onClick={e => handleDelete(e, p)}
+                    disabled={deleting === p.id}
+                    className="w-10 h-10 flex items-center justify-center rounded-xl bg-red/10 text-red active:bg-red/20 transition-colors disabled:opacity-40"
+                    aria-label={`Eliminar ${p.producto}`}
+                  >
+                    {deleting === p.id ? '⏳' : '🗑️'}
+                  </button>
+                </div>
               )}
             </div>
           ))

@@ -38,7 +38,6 @@ export default function ProductoForm({ catalogo, editProd, onClose }: Props) {
   const [pzaPaq,        setPzaPaq]       = useState(String(editProd?.pzaPaq ?? 1))
   const [codigoBarras,  setCodigoBarras] = useState(editProd?.codigoBarras ?? '')
   const [scanning,      setScanning]     = useState(false)
-  const [saving,        setSaving]       = useState(false)
 
   function handleBarcodeDetected(code: string) {
     setScanning(false)
@@ -67,7 +66,6 @@ export default function ProductoForm({ catalogo, editProd, onClose }: Props) {
       if (dup) { toast('Ya existe un producto con ese nombre', 'error'); return }
     }
 
-    setSaving(true)
     const n      = nowDateTime()
     const values = [
       editProd?.id ?? nextId('ALM', catalogo),
@@ -80,24 +78,32 @@ export default function ProductoForm({ catalogo, editProd, onClose }: Props) {
       editProd?.precioRef ?? 0,
     ]
 
-    try {
-      if (isEdit && editProd) {
-        await deleteRow(SHEET_NAMES.catalogo, editProd._row)
-        await appendProducto(values)
-        await appendBitacora([n.date, n.time, user?.nombre ?? '', 'Producto editado', `${editProd.producto} → ${nombre}`, 'edit']).catch(() => {})
-        toast(`${nombre} actualizado`)
-      } else {
-        await appendProducto(values)
-        await appendBitacora([n.date, n.time, user?.nombre ?? '', 'Producto agregado', `${nombre} en ${finalCat}`, 'add']).catch(() => {})
-        toast(`${nombre} agregado`)
+    // ── Optimistic close: dismiss modal immediately so the user doesn't
+    //    wait staring at a spinner. The API call completes in the background.
+    const label = nombre.trim()
+    toast(isEdit ? `Actualizando ${label}…` : `Guardando ${label}…`)
+    onClose()
+
+    // Run in background (React 18 ignores setState on unmounted components)
+    ;(async () => {
+      try {
+        if (isEdit && editProd) {
+          await deleteRow(SHEET_NAMES.catalogo, editProd._row)
+          await appendProducto(values)
+          await appendBitacora([n.date, n.time, user?.nombre ?? '', 'Producto editado', `${editProd.producto} → ${label}`, 'edit']).catch(() => {})
+          toast(`✅ ${label} actualizado`)
+        } else {
+          await appendProducto(values)
+          await appendBitacora([n.date, n.time, user?.nombre ?? '', 'Producto agregado', `${label} en ${finalCat}`, 'add']).catch(() => {})
+          toast(`✅ ${label} agregado`)
+        }
+        invalidate.catalogo()
+      } catch (err) {
+        toast('Error al guardar: ' + (err as Error).message, 'error')
+        // Re-open form so user can retry — just re-invalidate so data is fresh
+        invalidate.catalogo()
       }
-      invalidate.catalogo()
-      onClose()
-    } catch (err) {
-      toast('Error al guardar: ' + (err as Error).message, 'error')
-    } finally {
-      setSaving(false)
-    }
+    })()
   }
 
   return (
@@ -202,10 +208,9 @@ export default function ProductoForm({ catalogo, editProd, onClose }: Props) {
 
         <button
           type="submit"
-          disabled={saving}
-          className="w-full bg-accent text-white font-semibold py-3 rounded-card disabled:opacity-40 mb-2"
+          className="w-full bg-accent text-white font-semibold py-3 rounded-card mb-2"
         >
-          {saving ? 'Guardando…' : (isEdit ? '💾 Guardar cambios' : '✅ Agregar producto')}
+          {isEdit ? '💾 Guardar cambios' : '✅ Agregar producto'}
         </button>
         <button type="button" onClick={onClose}
           className="w-full bg-surface2 text-text1 font-semibold py-3 rounded-card">
