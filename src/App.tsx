@@ -11,7 +11,8 @@ import LoginScreen  from './auth/LoginScreen'
 import StatusBar    from './components/layout/StatusBar'
 import BottomNav    from './components/layout/BottomNav'
 import Modal        from './components/layout/Modal'
-import ToastContainer from './components/shared/Toast'
+import ToastContainer  from './components/shared/Toast'
+import LoadingOverlay  from './components/shared/LoadingOverlay'
 
 import MovimientoForm from './components/forms/MovimientoForm'
 import MermaForm      from './components/forms/MermaForm'
@@ -54,6 +55,7 @@ export default function App() {
     <QueryClientProvider client={queryClient}>
       <AuthProvider>
         <ToastProvider>
+          <LoadingOverlay />
           <ToastContainer />
           <AppShell />
         </ToastProvider>

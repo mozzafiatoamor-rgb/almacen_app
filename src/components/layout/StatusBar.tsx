@@ -21,9 +21,9 @@ export default function StatusBar({ onOpenUserMenu, onOpenSettings }: Props) {
           className={`w-2 h-2 rounded-full transition-colors ${online ? 'bg-green' : 'bg-red'}`}
         />
         <img
-          src="/logo.png"
+          src={`${import.meta.env.BASE_URL}logo.png`}
           alt="Mozzafiato"
-          className="h-8 w-auto rounded-lg object-contain"
+          className="h-8 w-auto object-contain"
           onError={e => { (e.target as HTMLImageElement).style.display = 'none' }}
         />
         {!online && (

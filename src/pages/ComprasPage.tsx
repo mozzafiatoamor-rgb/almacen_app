@@ -29,19 +29,32 @@ interface CartItem extends StockBajo {
   qtyOrdered: number  // how many the user will buy
 }
 
-// ─── Qty stepper ─────────────────────────────────────────────────────────────
+// ─── Qty input (numeric keyboard) ────────────────────────────────────────────
+// Typing is the primary way to enter a quantity. The ± buttons allow fast
+// single-unit adjustments without pulling up the keyboard every time.
 
-function QtyStepper({ value, onChange, min = 0 }: { value: number; onChange: (n: number) => void; min?: number }) {
+function QtyInput({ value, onChange, min = 1 }: { value: number; onChange: (n: number) => void; min?: number }) {
   return (
     <div className="flex items-center gap-1">
       <button
         onClick={() => onChange(Math.max(min, value - 1))}
-        className="w-8 h-8 rounded-lg bg-surface2 text-text1 font-bold text-lg flex items-center justify-center active:bg-surface3"
+        className="w-8 h-8 rounded-lg bg-surface2 text-text1 font-bold text-lg flex items-center justify-center active:bg-surface3 select-none"
       >−</button>
-      <span className="w-8 text-center text-sm font-bold text-text1 tabular-nums">{value}</span>
+      <input
+        type="number"
+        inputMode="numeric"
+        min={min}
+        value={value === 0 ? '' : value}
+        onChange={e => {
+          const n = parseInt(e.target.value)
+          onChange(isNaN(n) ? min : Math.max(min, n))
+        }}
+        onFocus={e => e.target.select()}
+        className="w-14 h-8 text-center text-sm font-bold text-text1 bg-surface2 border border-surface3 rounded-lg outline-none focus:border-accent tabular-nums"
+      />
       <button
         onClick={() => onChange(value + 1)}
-        className="w-8 h-8 rounded-lg bg-surface2 text-text1 font-bold text-lg flex items-center justify-center active:bg-surface3"
+        className="w-8 h-8 rounded-lg bg-surface2 text-text1 font-bold text-lg flex items-center justify-center active:bg-surface3 select-none"
       >+</button>
     </div>
   )
@@ -324,7 +337,7 @@ export default function ComprasPage() {
 
                     {/* Stepper + action row */}
                     <div className="flex items-center gap-2">
-                      <QtyStepper
+                      <QtyInput
                         value={qty}
                         min={1}
                         onChange={n => setPendingQty(prev => ({ ...prev, [p.producto]: n }))}
