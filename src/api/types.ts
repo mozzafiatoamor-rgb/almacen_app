@@ -1,5 +1,9 @@
 // ─── Data Models ──────────────────────────────────────────────────────────────
 
+export type Area = 'General' | 'Barra' | 'Cocina' | 'Ambas'
+
+export const AREAS: Area[] = ['General', 'Barra', 'Cocina', 'Ambas']
+
 export interface Producto {
   id: string
   categoria: string
@@ -12,6 +16,7 @@ export interface Producto {
   pzaPaq: number
   codigoBarras: string   // col J — EAN-13/EAN-8
   precioRef: number      // col K — last price paid per unit
+  area: Area             // col L — which area uses this product
   _row: number
 }
 
@@ -27,6 +32,7 @@ export interface Movimiento {
   responsable: string
   notas: string
   precioUnit: number     // col K — optional unit price (Entradas only)
+  areaDestino: string    // col L — destination area (Salidas only)
   _row: number
 }
 
@@ -86,6 +92,7 @@ export interface StockBajo {
   faltante: number
   proveedor: string
   precioRef: number      // for budget estimate
+  area: Area             // for area filtering in ComprasPage
 }
 
 // ─── App config stored in localStorage ────────────────────────────────────────
@@ -105,9 +112,10 @@ export interface CartItemMov {
   tipo: 'Entrada' | 'Salida'
   motivo: string
   notas: string
-  notaConv: string   // e.g. "3 paq x6"
-  precioUnit: number // optional unit price for Entradas
-  proveedor: string  // producto's proveedor (for Gastos)
+  notaConv: string    // e.g. "3 paq x6"
+  precioUnit: number  // optional unit price for Entradas
+  proveedor: string   // producto's proveedor (for Gastos)
+  areaDestino: string // destination area for Salidas
 }
 
 export interface CartItemMerma {

@@ -11,6 +11,7 @@ import type {
   Usuario,
   BitacoraEntry,
   Gasto,
+  Area,
 } from './types'
 
 async function readRange(sheet: string, range: string): Promise<string[][]> {
@@ -27,8 +28,14 @@ async function readRange(sheet: string, range: string): Promise<string[][]> {
 
 // ─── Catálogo ─────────────────────────────────────────────────────────────────
 
+const VALID_AREAS: Area[] = ['General', 'Barra', 'Cocina', 'Ambas']
+function parseArea(val: string): Area {
+  const trimmed = (val ?? '').trim() as Area
+  return VALID_AREAS.includes(trimmed) ? trimmed : 'General'
+}
+
 export async function fetchCatalogo(): Promise<Producto[]> {
-  const rows = await readRange(SHEET_NAMES.catalogo, 'A2:K500')
+  const rows = await readRange(SHEET_NAMES.catalogo, 'A2:L500')
   return rows
     .map((r, i) => ({
       id:           r[0] ?? '',
@@ -42,6 +49,7 @@ export async function fetchCatalogo(): Promise<Producto[]> {
       pzaPaq:       parseInt(r[8]) || 1,
       codigoBarras: r[9] ?? '',
       precioRef:    parseFloat(r[10]) || 0,
+      area:         parseArea(r[11]),
       _row:         i + 2,
     }))
     .filter(p => p.producto && p.activo !== 'NO')
@@ -50,7 +58,7 @@ export async function fetchCatalogo(): Promise<Producto[]> {
 // ─── Movimientos ──────────────────────────────────────────────────────────────
 
 export async function fetchMovimientos(): Promise<Movimiento[]> {
-  const rows = await readRange(SHEET_NAMES.movimientos, 'A2:K3000')
+  const rows = await readRange(SHEET_NAMES.movimientos, 'A2:L3000')
   return rows
     .map((r, i) => ({
       id:          r[0] ?? '',
@@ -64,6 +72,7 @@ export async function fetchMovimientos(): Promise<Movimiento[]> {
       responsable: r[8] ?? '',
       notas:       r[9] ?? '',
       precioUnit:  parseFloat(r[10]) || 0,
+      areaDestino: r[11] ?? '',
       _row:        i + 2,
     }))
     .filter(m => m.producto)

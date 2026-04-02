@@ -1,5 +1,6 @@
 import { useState, type FormEvent } from 'react'
-import type { Producto } from '../../api/types'
+import type { Producto, Area } from '../../api/types'
+import { AREAS } from '../../api/types'
 import { useAuth } from '../../auth/AuthContext'
 import { useToast } from '../../hooks/useToast'
 import { useInvalidate } from '../../hooks/useSheets'
@@ -11,6 +12,13 @@ import BarcodeScanner from '../shared/BarcodeScanner'
 
 const UNIDADES = ['pza', 'kg', 'lt', 'paq', 'caja', 'bolsa', 'bote', 'rollo', 'juego']
 const BASE_PROVEEDORES = ['Sams', 'Costco', 'Pacsa Deli', 'Sin asignar']
+
+const AREA_ICONS: Record<Area, string> = {
+  General: '📦',
+  Barra:   '🍸',
+  Cocina:  '🍳',
+  Ambas:   '↔️',
+}
 
 interface Props {
   catalogo:   Producto[]
@@ -37,6 +45,7 @@ export default function ProductoForm({ catalogo, editProd, onClose }: Props) {
   const [newProv,       setNewProv]      = useState('')
   const [pzaPaq,        setPzaPaq]       = useState(String(editProd?.pzaPaq ?? 1))
   const [codigoBarras,  setCodigoBarras] = useState(editProd?.codigoBarras ?? '')
+  const [area,          setArea]         = useState<Area>(editProd?.area ?? 'General')
   const [scanning,      setScanning]     = useState(false)
 
   function handleBarcodeDetected(code: string) {
@@ -76,6 +85,7 @@ export default function ProductoForm({ catalogo, editProd, onClose }: Props) {
       parseInt(pzaPaq) || 1,
       codigoBarras.trim(),
       editProd?.precioRef ?? 0,
+      area,
     ]
 
     // ── Optimistic close: dismiss modal immediately so the user doesn't
@@ -167,6 +177,30 @@ export default function ProductoForm({ catalogo, editProd, onClose }: Props) {
             <input value={newProv} onChange={e => setNewProv(e.target.value)}
               placeholder="Nombre del proveedor" className={`${inp} mt-1.5`} />
           )}
+        </Field>
+
+        {/* Área */}
+        <Field label="Área de uso">
+          <div className="grid grid-cols-4 gap-1.5">
+            {AREAS.map(a => (
+              <button
+                key={a}
+                type="button"
+                onClick={() => setArea(a)}
+                className={`flex flex-col items-center gap-0.5 py-2 rounded-xl text-xs font-semibold transition-all border ${
+                  area === a
+                    ? 'bg-accent text-white border-accent shadow-sm'
+                    : 'bg-surface2 text-text2 border-surface3'
+                }`}
+              >
+                <span className="text-base">{AREA_ICONS[a]}</span>
+                <span>{a}</span>
+              </button>
+            ))}
+          </div>
+          <p className="text-[10px] text-text2 mt-1.5">
+            ↔️ "Ambas" para productos que usan Barra y Cocina
+          </p>
         </Field>
 
         {/* Código de barras */}

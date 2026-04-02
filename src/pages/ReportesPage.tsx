@@ -59,6 +59,25 @@ export default function ReportesPage() {
     return Object.entries(map).map(([name, v]) => ({ name, ...v }))
   }, [catalogo])
 
+  // Consumo (salidas) por área destino
+  const consumoPorArea = useMemo(() => {
+    const map: Record<string, number> = {}
+    for (const m of movimientos.filter(m => m.tipo === 'Salida')) {
+      const area = m.areaDestino || 'Sin área'
+      map[area] = (map[area] ?? 0) + m.cantidad
+    }
+    return Object.entries(map)
+      .sort(([, a], [, b]) => b - a)
+      .map(([name, value]) => ({ name, value }))
+  }, [movimientos])
+
+  const AREA_COLORS_MAP: Record<string, string> = {
+    'Barra':    '#a78bfa',
+    'Cocina':   '#fb923c',
+    'General':  '#3b82f6',
+    'Sin área': '#7a94b0',
+  }
+
   const tooltip = { contentStyle: { background: '#162030', border: '1px solid #2a3d56', borderRadius: '10px', fontSize: '12px' }, labelStyle: { color: '#e0eaf4' } }
 
   return (
@@ -138,6 +157,48 @@ export default function ReportesPage() {
                 <Bar dataKey="bajo"  name="Bajo stock" fill="#f87171" radius={[3,3,0,0]} />
               </BarChart>
             </ResponsiveContainer>
+          )
+        }
+      </Section>
+
+      {/* Consumo por área destino */}
+      <Section title="📍 Consumo por Área Destino">
+        {consumoPorArea.length === 0
+          ? <Empty msg="Sin salidas registradas con área destino" />
+          : (
+            <>
+              <ResponsiveContainer width="100%" height={200}>
+                <PieChart>
+                  <Pie
+                    data={consumoPorArea}
+                    dataKey="value"
+                    nameKey="name"
+                    cx="50%"
+                    cy="50%"
+                    outerRadius={75}
+                    label={({ name, percent }) => `${name} ${(percent * 100).toFixed(0)}%`}
+                    labelLine={false}
+                  >
+                    {consumoPorArea.map((entry, i) => (
+                      <Cell key={i} fill={AREA_COLORS_MAP[entry.name] ?? COLORS[i % COLORS.length]} />
+                    ))}
+                  </Pie>
+                  <Tooltip {...tooltip} />
+                </PieChart>
+              </ResponsiveContainer>
+              {/* Legend */}
+              <div className="flex flex-wrap gap-2 justify-center mt-2">
+                {consumoPorArea.map((entry, i) => (
+                  <div key={entry.name} className="flex items-center gap-1 text-xs text-text2">
+                    <div
+                      className="w-2.5 h-2.5 rounded-full flex-none"
+                      style={{ background: AREA_COLORS_MAP[entry.name] ?? COLORS[i % COLORS.length] }}
+                    />
+                    <span>{entry.name}: <strong className="text-text1">{entry.value}</strong> uds.</span>
+                  </div>
+                ))}
+              </div>
+            </>
           )
         }
       </Section>

@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import type { Producto, CartItemMov } from '../../api/types'
+import type { Producto, CartItemMov, Area } from '../../api/types'
 import { useAuth } from '../../auth/AuthContext'
 import { useToast } from '../../hooks/useToast'
 import { useInvalidate } from '../../hooks/useSheets'
@@ -13,6 +13,19 @@ import type { Movimiento } from '../../api/types'
 const MOTIVOS_ENTRADA = ['Compra', 'Reposición', 'Transferencia', 'Ajuste inventario', 'Otro']
 const MOTIVOS_SALIDA  = ['Uso cocina', 'Uso barra', 'Uso limpieza', 'Transferencia', 'Ajuste inventario', 'Otro']
 
+// Destination areas for Salidas (not 'Ambas' — it's a product attribute, not a destination)
+const AREAS_DESTINO: Area[] = ['General', 'Barra', 'Cocina']
+const AREA_ICONS: Record<Area, string> = { General: '📦', Barra: '🍸', Cocina: '🍳', Ambas: '↔️' }
+
+function getLastArea(usuario: string): Area | '' {
+  try {
+    return (localStorage.getItem(`lastArea_${usuario}`) as Area | null) ?? ''
+  } catch { return '' }
+}
+function saveLastArea(usuario: string, area: Area) {
+  try { localStorage.setItem(`lastArea_${usuario}`, area) } catch {}
+}
+
 interface Props {
   tipo:        'Entrada' | 'Salida'
   catalogo:    Producto[]
@@ -25,15 +38,21 @@ export default function MovimientoForm({ tipo, catalogo, movimientos, onClose }:
   const toast       = useToast()
   const invalidate  = useInvalidate()
 
-  const [product,     setProduct]     = useState<Producto | null>(null)
-  const [qty,         setQty]         = useState('')
-  const [motivo,      setMotivo]      = useState(tipo === 'Entrada' ? MOTIVOS_ENTRADA[0] : MOTIVOS_SALIDA[0])
-  const [notas,       setNotas]       = useState('')
-  const [modoPaq,     setModoPaq]     = useState(true)   // only for Entrada
-  const [precioUnit,  setPrecioUnit]  = useState('')     // optional unit price for Entradas
-  const [cart,        setCart]        = useState<CartItemMov[]>([])
-  const [saving,      setSaving]      = useState(false)
-  const [scanning,    setScanning]    = useState(false)
+  // For Salidas: load last area used by this user from localStorage
+  const defaultArea = tipo === 'Salida' && user
+    ? (getLastArea(user.nombre) as Area) || '' as unknown as Area
+    : '' as unknown as Area
+
+  const [product,      setProduct]     = useState<Producto | null>(null)
+  const [qty,          setQty]         = useState('')
+  const [motivo,       setMotivo]      = useState(tipo === 'Entrada' ? MOTIVOS_ENTRADA[0] : MOTIVOS_SALIDA[0])
+  const [notas,        setNotas]       = useState('')
+  const [modoPaq,      setModoPaq]     = useState(true)    // only for Entrada
+  const [precioUnit,   setPrecioUnit]  = useState('')      // optional unit price for Entradas
+  const [areaDestino,  setAreaDestino] = useState<Area | ''>(defaultArea)
+  const [cart,         setCart]        = useState<CartItemMov[]>([])
+  const [saving,       setSaving]      = useState(false)
+  const [scanning,     setScanning]    = useState(false)
 
   const isEnt   = tipo === 'Entrada'
   const color   = isEnt ? 'text-green' : 'text-orange'
@@ -71,6 +90,12 @@ export default function MovimientoForm({ tipo, catalogo, movimientos, onClose }:
   function addToCart() {
     if (!product || !qty || parseInt(qty) < 1) { toast('Completa todos los campos', 'error'); return }
 
+    // Area destination required for Salidas
+    if (!isEnt && !areaDestino) {
+      toast('Selecciona el área destino', 'error')
+      return
+    }
+
     // Stock check for salidas
     if (tipo === 'Salida') {
       const inCart = cart.filter(c => c.prod === product.producto).reduce((s, c) => s + c.qty, 0)
@@ -80,21 +105,28 @@ export default function MovimientoForm({ tipo, catalogo, movimientos, onClose }:
       }
     }
 
+    // Save last area used by this user
+    if (!isEnt && areaDestino && user) {
+      saveLastArea(user.nombre, areaDestino as Area)
+    }
+
     const notaConv = isEnt && modoPaq && product.pzaPaq > 1 ? `${qty} paq×${product.pzaPaq}` : ''
     setCart(prev => [...prev, {
-      cat:        product.categoria,
-      prod:       product.producto,
-      qty:        realQty,
+      cat:         product.categoria,
+      prod:        product.producto,
+      qty:         realQty,
       tipo,
       motivo,
       notas,
       notaConv,
-      precioUnit: precio,
-      proveedor:  product.proveedor,
+      precioUnit:  precio,
+      proveedor:   product.proveedor,
+      areaDestino: isEnt ? '' : (areaDestino as string),
     }])
 
     const precioStr = precio > 0 ? ` · $${precio.toFixed(2)}/u` : ''
-    toast(`${product.producto} ×${realQty} agregado${precioStr}`)
+    const areaStr   = !isEnt && areaDestino ? ` → ${areaDestino}` : ''
+    toast(`${product.producto} ×${realQty} agregado${precioStr}${areaStr}`)
     setProduct(null); setQty(''); setNotas(''); setPrecioUnit('')
   }
 
@@ -118,6 +150,7 @@ export default function MovimientoForm({ tipo, catalogo, movimientos, onClose }:
           item.motivo, user.nombre,
           item.notaConv ? `${item.notas} [${item.notaConv}]`.trim() : item.notas,
           item.precioUnit > 0 ? item.precioUnit : '',
+          item.areaDestino || '',
         ])
         ids.push({ id } as Movimiento)
         ok++
@@ -284,6 +317,35 @@ export default function MovimientoForm({ tipo, catalogo, movimientos, onClose }:
           </select>
         </div>
 
+        {/* Área destino — Salidas only (mandatory) */}
+        {!isEnt && (
+          <div className="mb-3">
+            <label className="block text-xs font-semibold text-text2 mb-1.5">
+              Área destino <span className="text-red font-bold">*</span>
+            </label>
+            <div className="grid grid-cols-3 gap-1.5">
+              {AREAS_DESTINO.map(a => (
+                <button
+                  key={a}
+                  type="button"
+                  onClick={() => setAreaDestino(a)}
+                  className={`flex flex-col items-center gap-0.5 py-2.5 rounded-xl text-xs font-semibold transition-all border ${
+                    areaDestino === a
+                      ? 'bg-orange text-white border-orange shadow-sm'
+                      : 'bg-surface2 text-text2 border-surface3'
+                  }`}
+                >
+                  <span className="text-base">{AREA_ICONS[a]}</span>
+                  <span>{a}</span>
+                </button>
+              ))}
+            </div>
+            {!areaDestino && (
+              <p className="text-[10px] text-orange mt-1.5">Selecciona a dónde va este producto</p>
+            )}
+          </div>
+        )}
+
         {/* Notas */}
         <div className="mb-4">
           <label className="block text-xs font-semibold text-text2 mb-1.5">Notas (opcional)</label>
@@ -318,6 +380,7 @@ export default function MovimientoForm({ tipo, catalogo, movimientos, onClose }:
                     {c.motivo}
                     {c.notaConv ? ` · 📦 ${c.notaConv}` : ''}
                     {c.precioUnit > 0 ? ` · $${c.precioUnit.toFixed(2)}/u` : ''}
+                    {c.areaDestino ? ` · 📍 ${c.areaDestino}` : ''}
                   </div>
                 </div>
                 <div className="text-right flex-none">

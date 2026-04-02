@@ -85,6 +85,7 @@ export function useStockBajo(): StockBajo[] {
       faltante:    p.stockMinimo - p.stockActual,
       proveedor:   p.proveedor,
       precioRef:   p.precioRef,
+      area:        p.area,
     }))
 }
 

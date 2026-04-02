@@ -10,7 +10,8 @@ import FilterPills from '../components/shared/FilterPills'
 import EmptyState from '../components/shared/EmptyState'
 import Modal from '../components/layout/Modal'
 import ProductoForm from '../components/forms/ProductoForm'
-import type { Producto } from '../api/types'
+import AreaFilter, { AreaBadge } from '../components/shared/AreaFilter'
+import type { Producto, Area } from '../api/types'
 
 export default function CatalogoPage() {
   const { data: catalogo = [], isLoading } = useCatalogo()
@@ -20,6 +21,7 @@ export default function CatalogoPage() {
 
   const [query,    setQuery]    = useState('')
   const [catF,     setCatF]     = useState('todos')
+  const [areaF,    setAreaF]    = useState<Area | 'todos'>('todos')
   const [modal,    setModal]    = useState<'add' | 'edit' | null>(null)
   const [editProd, setEditProd] = useState<Producto | null>(null)
   const [deleting, setDeleting] = useState<string | null>(null)
@@ -28,11 +30,13 @@ export default function CatalogoPage() {
 
   const filtered = useMemo(() => {
     const q = query.toLowerCase()
-    return catalogo.filter(p =>
-      (!q || p.producto.toLowerCase().includes(q) || p.categoria.toLowerCase().includes(q)) &&
-      (catF === 'todos' || p.categoria === catF)
-    )
-  }, [catalogo, query, catF])
+    return catalogo.filter(p => {
+      const matchQ   = !q || p.producto.toLowerCase().includes(q) || p.categoria.toLowerCase().includes(q)
+      const matchCat = catF === 'todos' || p.categoria === catF
+      const matchArea = areaF === 'todos' || p.area === areaF || (areaF !== 'todos' && p.area === 'Ambas')
+      return matchQ && matchCat && matchArea
+    })
+  }, [catalogo, query, catF, areaF])
 
   async function handleDelete(e: React.MouseEvent, p: Producto) {
     e.stopPropagation()
@@ -73,6 +77,7 @@ export default function CatalogoPage() {
       </div>
 
       <SearchBar value={query} onChange={setQuery} placeholder="Buscar producto o categoría…" />
+      <AreaFilter active={areaF} onChange={setAreaF} />
       <FilterPills options={cats} active={catF} onSelect={setCatF} />
 
       {filtered.length === 0
@@ -84,7 +89,10 @@ export default function CatalogoPage() {
                 onClick={() => isAdmin && openEdit(p)}
                 className={`flex-1 min-w-0 ${isAdmin ? 'cursor-pointer' : ''}`}
               >
-                <div className="text-sm font-semibold text-text1">{p.producto}</div>
+                <div className="flex items-center gap-1.5 flex-wrap mb-0.5">
+                  <span className="text-sm font-semibold text-text1">{p.producto}</span>
+                  <AreaBadge area={p.area} />
+                </div>
                 <div className="text-xs text-text2 truncate">
                   {p.categoria} · {p.unidad} · 🏪 {p.proveedor}
                 </div>

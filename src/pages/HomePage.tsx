@@ -1,5 +1,6 @@
+import { useMemo } from 'react'
 import { useAuth } from '../auth/AuthContext'
-import { useHomeStats, useStockBajo } from '../hooks/useSheets'
+import { useHomeStats, useStockBajo, useMovimientos } from '../hooks/useSheets'
 import StatBox from '../components/shared/StatBox'
 import { today } from '../utils/dates'
 import type { Tab } from '../api/types'
@@ -9,10 +10,29 @@ interface Props {
   onSwitch:    (tab: Tab) => void
 }
 
+const AREA_CONFIG = [
+  { key: 'Barra',   icon: '🍸', color: 'text-purple-400', bg: 'bg-purple-500/10 border-purple-500/20' },
+  { key: 'Cocina',  icon: '🍳', color: 'text-orange-400', bg: 'bg-orange-500/10 border-orange-500/20' },
+  { key: 'General', icon: '📦', color: 'text-blue-400',   bg: 'bg-blue-500/10 border-blue-500/20'     },
+] as const
+
 export default function HomePage({ onOpenModal, onSwitch }: Props) {
-  const { user }   = useAuth()
-  const stats      = useHomeStats()
-  const stockBajo  = useStockBajo()
+  const { user }                       = useAuth()
+  const stats                          = useHomeStats()
+  const stockBajo                      = useStockBajo()
+  const { data: movimientos = [] }     = useMovimientos()
+  const todayStr                       = today()
+
+  // Salidas del día grouped by areaDestino
+  const salHoyPorArea = useMemo(() => {
+    const salidasHoy = movimientos.filter(m => m.fecha === todayStr && m.tipo === 'Salida')
+    const map: Record<string, number> = {}
+    for (const m of salidasHoy) {
+      const area = m.areaDestino || 'Sin área'
+      map[area] = (map[area] ?? 0) + 1
+    }
+    return map
+  }, [movimientos, todayStr])
 
   const rolLabel = user?.rol === 'admin'
     ? '🔑 Administrador' : user?.rol === 'encargado'
@@ -62,6 +82,40 @@ export default function HomePage({ onOpenModal, onSwitch }: Props) {
           </button>
         ))}
       </div>
+
+      {/* Actividad del día por área */}
+      {stats.salHoy > 0 && (
+        <div className="bg-surface rounded-card border border-white/[0.04] mb-4 overflow-hidden">
+          <div className="px-4 py-3 border-b border-surface3 flex items-center justify-between">
+            <span className="font-bold text-sm">📍 Salidas de Hoy por Área</span>
+            <span className="text-xs text-text2">{stats.salHoy} mov.</span>
+          </div>
+          <div className="px-4 py-3 flex flex-wrap gap-2">
+            {AREA_CONFIG.map(({ key, icon, color, bg }) => {
+              const count = salHoyPorArea[key] ?? 0
+              if (count === 0) return null
+              return (
+                <div key={key} className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full border text-xs font-semibold ${bg} ${color}`}>
+                  <span>{icon}</span>
+                  <span>{key}:</span>
+                  <span className="font-bold">{count}</span>
+                </div>
+              )
+            })}
+            {/* Other areas not in AREA_CONFIG (e.g. Sin área) */}
+            {Object.entries(salHoyPorArea)
+              .filter(([k]) => !AREA_CONFIG.some(a => a.key === k))
+              .map(([k, v]) => (
+                <div key={k} className="flex items-center gap-1.5 px-3 py-1.5 rounded-full border border-white/10 bg-surface2 text-text2 text-xs font-semibold">
+                  <span>📦</span>
+                  <span>{k || 'Sin área'}:</span>
+                  <span className="font-bold">{v}</span>
+                </div>
+              ))
+            }
+          </div>
+        </div>
+      )}
 
       {/* Stock bajo alert */}
       {stockBajo.length > 0 && (

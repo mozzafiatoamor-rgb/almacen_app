@@ -16,12 +16,13 @@ import { motion, AnimatePresence } from 'framer-motion'
 import SearchBar   from '../components/shared/SearchBar'
 import FilterPills from '../components/shared/FilterPills'
 import EmptyState  from '../components/shared/EmptyState'
+import AreaFilter, { AreaBadge } from '../components/shared/AreaFilter'
 import { today, nowDateTime } from '../utils/dates'
 import { useToast }   from '../hooks/useToast'
 import { useAuth }    from '../auth/AuthContext'
 import { appendMovimiento, appendBitacora, appendGasto } from '../api/appscript'
 import { nextId }     from '../utils/ids'
-import type { StockBajo, Movimiento } from '../api/types'
+import type { StockBajo, Movimiento, Area } from '../api/types'
 
 // ─── Cart item type (local) ───────────────────────────────────────────────────
 
@@ -71,6 +72,7 @@ export default function ComprasPage() {
 
   const [query,        setQuery]       = useState('')
   const [provF,        setProvF]       = useState('todos')
+  const [areaF,        setAreaF]       = useState<Area | 'todos'>('todos')
   // Per-product stepper qty (before adding to cart)
   const [pendingQty,   setPendingQty]  = useState<Record<string, number>>({})
   // Cart: products confirmed for this order
@@ -85,11 +87,13 @@ export default function ComprasPage() {
 
   const filtered = useMemo(() => {
     const q = query.toLowerCase()
-    return stockBajo.filter(p =>
-      (provF === 'todos' || p.proveedor === provF) &&
-      (!q || p.producto.toLowerCase().includes(q) || p.proveedor.toLowerCase().includes(q))
-    )
-  }, [stockBajo, query, provF])
+    return stockBajo.filter(p => {
+      const matchProv = provF === 'todos' || p.proveedor === provF
+      const matchQ    = !q || p.producto.toLowerCase().includes(q) || p.proveedor.toLowerCase().includes(q)
+      const matchArea = areaF === 'todos' || p.area === areaF || (areaF !== 'todos' && p.area === 'Ambas')
+      return matchProv && matchQ && matchArea
+    })
+  }, [stockBajo, query, provF, areaF])
 
   const byProv = useMemo(() => {
     const g: Record<string, typeof filtered> = {}
@@ -146,22 +150,56 @@ export default function ComprasPage() {
     return g
   }, [cartItems])
 
-  // Generate order text per proveedor (for share/copy)
+  // Generate order text grouped by proveedor → area → products, with budget
   function buildOrderText() {
+    const AREA_ORDER: Array<Area> = ['Barra', 'Cocina', 'General', 'Ambas']
+    const AREA_HEADER: Record<string, string> = {
+      Barra:   '🍸 BARRA',
+      Cocina:  '🍳 COCINA',
+      General: '📦 GENERAL',
+      Ambas:   '↔️ COMPARTIDO',
+    }
     const provs = Object.keys(cartByProv).sort()
     let txt = `📦 PEDIDO MOZZAFIATO — ${today()}\n━━━━━━━━━━━━━━━━━━━\n\n`
+    let totalArticulos = 0
+    let totalPresupuesto = 0
+
     for (const prov of provs) {
+      const items = cartByProv[prov]
+      const provTotal = items.reduce((s, i) => s + i.qtyOrdered, 0)
+      const provBudget = items.reduce((s, i) => s + (i.precioRef > 0 ? i.qtyOrdered * i.precioRef : 0), 0)
+
       txt += `🏪 ${prov.toUpperCase()}\n`
-      for (const item of cartByProv[prov]) {
-        const est = item.precioRef > 0
-          ? ` (≈ $${(item.qtyOrdered * item.precioRef).toFixed(2)})`
-          : ''
-        txt += `  ▫ ${item.producto} — ${item.qtyOrdered} ${item.unidad}${est}\n`
+
+      // Group items by area
+      const byArea: Record<string, CartItem[]> = {}
+      for (const item of items) {
+        const key = item.area ?? 'General'
+        if (!byArea[key]) byArea[key] = []
+        byArea[key].push(item)
       }
-      txt += '\n'
+
+      for (const areaKey of AREA_ORDER) {
+        const areaItems = byArea[areaKey]
+        if (!areaItems?.length) continue
+        txt += `  ${AREA_HEADER[areaKey]}:\n`
+        for (const item of areaItems) {
+          const est = item.precioRef > 0
+            ? ` (≈ $${(item.qtyOrdered * item.precioRef).toFixed(2)})`
+            : ''
+          txt += `    ▫ ${item.producto} — ${item.qtyOrdered} ${item.unidad}${est}\n`
+        }
+      }
+
+      const budgetStr = provBudget > 0 ? ` · Presupuesto: ~$${provBudget.toFixed(2)}` : ''
+      txt += `  📊 Subtotal: ${provTotal} artículo${provTotal !== 1 ? 's' : ''}${budgetStr}\n\n`
+      totalArticulos += provTotal
+      totalPresupuesto += provBudget
     }
-    if (cartTotal > 0) txt += `💰 Total estimado: $${cartTotal.toFixed(2)}\n`
-    txt += `Total: ${cartCount} productos`
+
+    txt += `━━━━━━━━━━━━━━━━━━━\n`
+    txt += `📊 TOTAL: ${totalArticulos} artículos en ${cartCount} producto${cartCount !== 1 ? 's' : ''}`
+    if (totalPresupuesto > 0) txt += `\n💰 Presupuesto estimado: ~$${totalPresupuesto.toFixed(2)}`
     return txt
   }
 
@@ -282,6 +320,7 @@ export default function ComprasPage() {
         </div>
       )}
 
+      <AreaFilter active={areaF} onChange={setAreaF} />
       <FilterPills options={proveedores} active={provF} onSelect={setProvF} allLabel="Todos" />
       <SearchBar value={query} onChange={setQuery} placeholder="Buscar producto o proveedor…" />
 
@@ -313,6 +352,7 @@ export default function ComprasPage() {
                       <div className="flex-1 min-w-0">
                         <div className="flex items-center gap-2 flex-wrap">
                           <span className="text-sm font-semibold text-text1">{p.producto}</span>
+                          <AreaBadge area={p.area} />
                           {inCart ? (
                             <span className="text-[10px] bg-green/20 text-green px-1.5 py-0.5 rounded-md font-semibold">
                               ✓ En pedido ×{cart[p.producto].qtyOrdered}
@@ -426,39 +466,68 @@ export default function ComprasPage() {
 
               {/* Scrollable content */}
               <div className="flex-1 overflow-y-auto px-5 py-4">
-                {Object.keys(cartByProv).sort().map(prov => (
-                  <div key={prov} className="mb-4">
-                    <div className="text-xs font-bold text-text2 uppercase tracking-wide mb-2">
-                      🏪 {prov}
-                    </div>
-                    {cartByProv[prov].map(item => (
-                      <div key={item.producto} className="flex items-center gap-2 py-2 border-b border-surface3/50 last:border-0">
-                        <div className="flex-1 min-w-0">
-                          <div className="text-sm font-semibold text-text1 truncate">{item.producto}</div>
-                          <div className="text-xs text-text2">{item.unidad}</div>
-                        </div>
-                        <div className="text-right flex-none">
-                          <div className="text-sm font-bold text-accent">{item.qtyOrdered} {item.unidad}</div>
-                          {item.precioRef > 0 && (
-                            <div className="text-xs text-yellow-400">
-                              ${(item.qtyOrdered * item.precioRef).toFixed(2)}
-                            </div>
-                          )}
-                        </div>
-                        <button
-                          onClick={() => removeFromCart(item.producto)}
-                          className="text-red/60 text-sm ml-1"
-                        >✕</button>
+                {Object.keys(cartByProv).sort().map(prov => {
+                  const provItems = cartByProv[prov]
+                  const provBudget = provItems.reduce((s, i) => s + (i.precioRef > 0 ? i.qtyOrdered * i.precioRef : 0), 0)
+                  const provTotal  = provItems.reduce((s, i) => s + i.qtyOrdered, 0)
+                  // Group by area
+                  const AREA_ORDER_DISP: Array<Area> = ['Barra', 'Cocina', 'General', 'Ambas']
+                  const AREA_ICON_MAP: Record<string, string> = { Barra: '🍸', Cocina: '🍳', General: '📦', Ambas: '↔️' }
+                  const byAreaDisp: Record<string, CartItem[]> = {}
+                  for (const item of provItems) {
+                    const key = item.area ?? 'General'
+                    if (!byAreaDisp[key]) byAreaDisp[key] = []
+                    byAreaDisp[key].push(item)
+                  }
+                  return (
+                    <div key={prov} className="mb-5">
+                      <div className="flex items-center justify-between mb-2">
+                        <div className="text-xs font-bold text-text2 uppercase tracking-wide">🏪 {prov}</div>
+                        <div className="text-[10px] text-text2">{provTotal} arts{provBudget > 0 ? ` · ~$${provBudget.toFixed(2)}` : ''}</div>
                       </div>
-                    ))}
-                  </div>
-                ))}
+                      {AREA_ORDER_DISP.map(areaKey => {
+                        const areaItems = byAreaDisp[areaKey]
+                        if (!areaItems?.length) return null
+                        return (
+                          <div key={areaKey} className="mb-2">
+                            <div className="text-[10px] font-semibold text-text2/60 uppercase mb-1 pl-1">
+                              {AREA_ICON_MAP[areaKey]} {areaKey}
+                            </div>
+                            {areaItems.map(item => (
+                              <div key={item.producto} className="flex items-center gap-2 py-2 border-b border-surface3/50 last:border-0">
+                                <div className="flex-1 min-w-0">
+                                  <div className="text-sm font-semibold text-text1 truncate">{item.producto}</div>
+                                  <div className="text-xs text-text2">{item.unidad}</div>
+                                </div>
+                                <div className="text-right flex-none">
+                                  <div className="text-sm font-bold text-accent">{item.qtyOrdered} {item.unidad}</div>
+                                  {item.precioRef > 0 && (
+                                    <div className="text-xs text-yellow-400">
+                                      ${(item.qtyOrdered * item.precioRef).toFixed(2)}
+                                    </div>
+                                  )}
+                                </div>
+                                <button
+                                  onClick={() => removeFromCart(item.producto)}
+                                  className="text-red/60 text-sm ml-1"
+                                >✕</button>
+                              </div>
+                            ))}
+                          </div>
+                        )
+                      })}
+                    </div>
+                  )
+                })}
 
                 {/* Total */}
                 {cartTotal > 0 && (
-                  <div className="bg-yellow-400/10 border border-yellow-400/30 rounded-xl px-4 py-3 flex justify-between items-center mt-2">
-                    <span className="text-sm font-semibold text-yellow-400">💰 Total estimado</span>
-                    <span className="text-base font-bold text-yellow-400">${cartTotal.toFixed(2)}</span>
+                  <div className="bg-yellow-400/10 border border-yellow-400/30 rounded-xl px-4 py-3 mt-2">
+                    <div className="flex justify-between items-center">
+                      <span className="text-sm font-semibold text-yellow-400">💰 Total estimado</span>
+                      <span className="text-base font-bold text-yellow-400">${cartTotal.toFixed(2)}</span>
+                    </div>
+                    <div className="text-xs text-yellow-400/70 mt-0.5">{cartCount} producto{cartCount !== 1 ? 's' : ''} · {cartItems.reduce((s, i) => s + i.qtyOrdered, 0)} artículos en total</div>
                   </div>
                 )}
               </div>
