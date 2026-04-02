@@ -1,4 +1,4 @@
-import { useState, type FormEvent } from 'react'
+import { useState, useMemo, useRef, type FormEvent } from 'react'
 import type { Producto, Area } from '../../api/types'
 import { AREAS } from '../../api/types'
 import { useAuth } from '../../auth/AuthContext'
@@ -20,17 +20,62 @@ const AREA_ICONS: Record<Area, string> = {
   Ambas:   '↔️',
 }
 
+// ─── Duplicate detection helpers ──────────────────────────────────────────────
+
+/** Normalize a string: lowercase, remove accents, collapse spaces */
+function normalize(str: string): string {
+  return str
+    .toLowerCase()
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '') // strip accent marks
+    .replace(/[^a-z0-9\s]/g, '')     // keep alphanumeric + spaces
+    .replace(/\s+/g, ' ')
+    .trim()
+}
+
+/** Find products with an identical normalized name (exact duplicate) */
+function findExact(nombre: string, catalogo: Producto[], excludeName?: string): Producto | undefined {
+  const n = normalize(nombre)
+  if (!n) return undefined
+  return catalogo.find(p =>
+    normalize(p.producto) === n &&
+    p.producto !== excludeName
+  )
+}
+
+/** Find products that share at least one significant keyword (min 4 chars) */
+function findSimilar(nombre: string, catalogo: Producto[], excludeName?: string): Producto[] {
+  const n = normalize(nombre)
+  if (n.length < 3) return []
+
+  const words = n.split(' ').filter(w => w.length >= 4)
+  if (words.length === 0) return []
+
+  return catalogo
+    .filter(p => {
+      if (p.producto === excludeName) return false
+      if (normalize(p.producto) === n) return false // exact — handled separately
+      const pNorm = normalize(p.producto)
+      return words.some(w => pNorm.includes(w))
+    })
+    .slice(0, 5) // max 5 suggestions
+}
+
+// ─── Props ────────────────────────────────────────────────────────────────────
+
 interface Props {
   catalogo:   Producto[]
-  editProd?:  Producto | null   // null = add mode
+  editProd?:  Producto | null
   onClose:    () => void
 }
 
+// ─── Component ────────────────────────────────────────────────────────────────
+
 export default function ProductoForm({ catalogo, editProd, onClose }: Props) {
-  const { user }    = useAuth()
-  const toast       = useToast()
-  const invalidate  = useInvalidate()
-  const isEdit      = !!editProd
+  const { user }   = useAuth()
+  const toast      = useToast()
+  const invalidate = useInvalidate()
+  const isEdit     = !!editProd
 
   const cats  = [...new Set(catalogo.map(p => p.categoria))].sort()
   const provs = [...new Set([...BASE_PROVEEDORES, ...catalogo.map(p => p.proveedor)])].sort()
@@ -47,10 +92,43 @@ export default function ProductoForm({ catalogo, editProd, onClose }: Props) {
   const [codigoBarras,  setCodigoBarras] = useState(editProd?.codigoBarras ?? '')
   const [area,          setArea]         = useState<Area>(editProd?.area ?? 'General')
   const [scanning,      setScanning]     = useState(false)
+  const [showDropdown,  setShowDropdown] = useState(false)
+  const [blocked,       setBlocked]      = useState(false) // true when user picked exact duplicate
+
+  const nombreRef = useRef<HTMLInputElement>(null)
+
+  // ── Duplicate detection (live, while typing) ─────────────────────────────
+
+  const exactDup = useMemo(
+    () => !isEdit ? findExact(nombre, catalogo) : findExact(nombre, catalogo, editProd?.producto),
+    [nombre, catalogo, isEdit, editProd]
+  )
+
+  const suggestions = useMemo(
+    () => !isEdit ? findSimilar(nombre, catalogo) : findSimilar(nombre, catalogo, editProd?.producto),
+    [nombre, catalogo, isEdit, editProd]
+  )
+
+  // Block save when exact duplicate detected
+  const canSave = !exactDup && !blocked
+
+  function handleNombreChange(val: string) {
+    setNombre(val)
+    setBlocked(false)       // reset block on new typing
+    setShowDropdown(true)   // show dropdown while typing
+  }
+
+  function handleSuggestionPick(p: Producto) {
+    setNombre(p.producto)
+    setBlocked(true)
+    setShowDropdown(false)
+    nombreRef.current?.blur()
+  }
+
+  // ── Barcode handler ───────────────────────────────────────────────────────
 
   function handleBarcodeDetected(code: string) {
     setScanning(false)
-    // Check if already assigned to another product
     const existing = catalogo.find(
       p => p.codigoBarras === code && p.producto !== editProd?.producto
     )
@@ -62,17 +140,21 @@ export default function ProductoForm({ catalogo, editProd, onClose }: Props) {
     }
   }
 
+  // ── Submit ────────────────────────────────────────────────────────────────
+
   async function submit(e: FormEvent) {
     e.preventDefault()
     const finalCat  = cat === '__new__'  ? newCat.trim()  : cat
     const finalProv = prov === '__new__' ? newProv.trim() : prov
+
     if (!finalCat || !nombre.trim()) { toast('Completa categoría y producto', 'error'); return }
-    if (cat === '__new__' && !newCat.trim()) { toast('Escribe la nueva categoría', 'error'); return }
+    if (cat  === '__new__' && !newCat.trim())  { toast('Escribe la nueva categoría', 'error'); return }
     if (prov === '__new__' && !newProv.trim()) { toast('Escribe el nuevo proveedor', 'error'); return }
 
-    if (!isEdit) {
-      const dup = catalogo.find(p => p.producto.toLowerCase() === nombre.trim().toLowerCase())
-      if (dup) { toast('Ya existe un producto con ese nombre', 'error'); return }
+    // Final exact-duplicate guard (safety net even without picking from dropdown)
+    if (exactDup) {
+      toast(`"${exactDup.producto}" ya existe en el catálogo`, 'error')
+      return
     }
 
     const n      = nowDateTime()
@@ -88,13 +170,10 @@ export default function ProductoForm({ catalogo, editProd, onClose }: Props) {
       area,
     ]
 
-    // ── Optimistic close: dismiss modal immediately so the user doesn't
-    //    wait staring at a spinner. The API call completes in the background.
     const label = nombre.trim()
     toast(isEdit ? `Actualizando ${label}…` : `Guardando ${label}…`)
     onClose()
 
-    // Run in background (React 18 ignores setState on unmounted components)
     ;(async () => {
       try {
         if (isEdit && editProd) {
@@ -110,11 +189,12 @@ export default function ProductoForm({ catalogo, editProd, onClose }: Props) {
         invalidate.catalogo()
       } catch (err) {
         toast('Error al guardar: ' + (err as Error).message, 'error')
-        // Re-open form so user can retry — just re-invalidate so data is fresh
         invalidate.catalogo()
       }
     })()
   }
+
+  // ─────────────────────────────────────────────────────────────────────────
 
   return (
     <>
@@ -128,6 +208,7 @@ export default function ProductoForm({ catalogo, editProd, onClose }: Props) {
       <form onSubmit={submit}>
         <h2 className="text-lg font-bold mb-4">{isEdit ? '✏️ Editar' : '➕ Nuevo'} Producto</h2>
 
+        {/* Categoría */}
         <Field label="Categoría">
           <select value={cat} onChange={e => setCat(e.target.value)} className={inp}>
             <option value="">Seleccionar…</option>
@@ -140,11 +221,80 @@ export default function ProductoForm({ catalogo, editProd, onClose }: Props) {
           )}
         </Field>
 
+        {/* Nombre del producto — with duplicate detection */}
         <Field label="Nombre del producto">
-          <input value={nombre} onChange={e => setNombre(e.target.value)}
-            placeholder="Ej. Café en grano" className={inp} required />
+          <div className="relative">
+            <input
+              ref={nombreRef}
+              value={nombre}
+              onChange={e => handleNombreChange(e.target.value)}
+              onFocus={() => setShowDropdown(true)}
+              onBlur={() => setTimeout(() => setShowDropdown(false), 150)}
+              placeholder="Ej. Café en grano"
+              className={`${inp} ${exactDup || blocked ? 'border-red focus:border-red' : ''}`}
+              required
+            />
+
+            {/* Suggestions dropdown */}
+            {showDropdown && suggestions.length > 0 && !exactDup && (
+              <div className="absolute z-50 left-0 right-0 top-full mt-1 bg-surface border border-surface3 rounded-xl shadow-xl overflow-hidden">
+                <div className="px-3 py-2 text-[10px] font-semibold text-text2 uppercase tracking-wide border-b border-surface3">
+                  🔍 Productos similares en catálogo
+                </div>
+                {suggestions.map(p => (
+                  <button
+                    key={p.id}
+                    type="button"
+                    onMouseDown={() => handleSuggestionPick(p)}
+                    className="w-full flex items-center gap-2.5 px-3 py-2.5 hover:bg-surface2 active:bg-surface3 transition-colors text-left border-b border-surface3/50 last:border-0"
+                  >
+                    <span className="text-base flex-none">
+                      {AREA_ICONS[p.area] ?? '📦'}
+                    </span>
+                    <div className="flex-1 min-w-0">
+                      <div className="text-sm font-semibold text-text1 truncate">{p.producto}</div>
+                      <div className="text-[11px] text-text2 truncate">
+                        {p.categoria} · {p.unidad} · {p.proveedor}
+                      </div>
+                    </div>
+                    <span className="text-[10px] text-orange bg-orange/10 border border-orange/20 px-1.5 py-0.5 rounded-full font-semibold flex-none">
+                      Similar
+                    </span>
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
+
+          {/* Exact duplicate warning — blocks save */}
+          {exactDup && (
+            <div className="mt-2 flex items-start gap-2 bg-red/10 border border-red/30 rounded-xl px-3 py-2.5">
+              <span className="text-base flex-none">🚫</span>
+              <div className="flex-1 min-w-0">
+                <div className="text-xs font-bold text-red">Producto duplicado</div>
+                <div className="text-[11px] text-text2 mt-0.5">
+                  <strong className="text-text1">"{exactDup.producto}"</strong> ya existe en {exactDup.categoria}.
+                  Edítalo desde el Catálogo si necesitas cambiarlo.
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* Picked-from-dropdown warning */}
+          {blocked && !exactDup && (
+            <div className="mt-2 flex items-start gap-2 bg-orange/10 border border-orange/30 rounded-xl px-3 py-2.5">
+              <span className="text-base flex-none">⚠️</span>
+              <div className="flex-1 min-w-0">
+                <div className="text-xs font-bold text-orange">Producto ya existe</div>
+                <div className="text-[11px] text-text2 mt-0.5">
+                  Este nombre ya está en el catálogo. Si es diferente, escribe un nombre distinto para continuar.
+                </div>
+              </div>
+            </div>
+          )}
         </Field>
 
+        {/* Grid: unidad + pzaPaq */}
         <div className="grid grid-cols-2 gap-2">
           <Field label="Unidad">
             <select value={unidad} onChange={e => setUnidad(e.target.value)} className={inp}>
@@ -157,6 +307,7 @@ export default function ProductoForm({ catalogo, editProd, onClose }: Props) {
           </Field>
         </div>
 
+        {/* Grid: stock mín + stock actual */}
         <div className="grid grid-cols-2 gap-2">
           <Field label="Stock mínimo">
             <input type="number" inputMode="numeric" min="0" value={minimo}
@@ -168,6 +319,7 @@ export default function ProductoForm({ catalogo, editProd, onClose }: Props) {
           </Field>
         </div>
 
+        {/* Proveedor */}
         <Field label="Proveedor">
           <select value={prov} onChange={e => setProv(e.target.value)} className={inp}>
             {provs.map(p => <option key={p} value={p}>{p}</option>)}
@@ -225,11 +377,7 @@ export default function ProductoForm({ catalogo, editProd, onClose }: Props) {
           {codigoBarras && (
             <div className="mt-1.5 flex items-center justify-between">
               <span className="text-[11px] font-mono text-accent">{codigoBarras}</span>
-              <button
-                type="button"
-                onClick={() => setCodigoBarras('')}
-                className="text-[11px] text-red"
-              >
+              <button type="button" onClick={() => setCodigoBarras('')} className="text-[11px] text-red">
                 Quitar
               </button>
             </div>
@@ -237,12 +385,14 @@ export default function ProductoForm({ catalogo, editProd, onClose }: Props) {
         </Field>
 
         <p className="text-[11px] text-text2 mb-4">
-          Si el producto se compra en paquetes (ej. 6 jabones/caja), pon 6 en Piezas/paquete para que la conversión sea automática al registrar entradas.
+          Si el producto se compra en paquetes (ej. 6 jabones/caja), pon 6 en Piezas/paquete
+          para que la conversión sea automática al registrar entradas.
         </p>
 
         <button
           type="submit"
-          className="w-full bg-accent text-white font-semibold py-3 rounded-card mb-2"
+          disabled={!canSave}
+          className="w-full bg-accent text-white font-semibold py-3 rounded-card mb-2 disabled:opacity-40 disabled:cursor-not-allowed transition-opacity"
         >
           {isEdit ? '💾 Guardar cambios' : '✅ Agregar producto'}
         </button>
@@ -255,7 +405,7 @@ export default function ProductoForm({ catalogo, editProd, onClose }: Props) {
   )
 }
 
-const inp = 'w-full bg-surface2 border border-surface3 rounded-card px-3.5 py-3 text-sm text-text1 outline-none focus:border-accent font-sans'
+const inp = 'w-full bg-surface2 border border-surface3 rounded-card px-3.5 py-3 text-sm text-text1 outline-none focus:border-accent font-sans transition-colors'
 
 function Field({ label, children }: { label: string; children: React.ReactNode }) {
   return (
