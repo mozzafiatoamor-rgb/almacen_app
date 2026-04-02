@@ -90,7 +90,7 @@ export default function ComprasPage() {
     return stockBajo.filter(p => {
       const matchProv = provF === 'todos' || p.proveedor === provF
       const matchQ    = !q || p.producto.toLowerCase().includes(q) || p.proveedor.toLowerCase().includes(q)
-      const matchArea = areaF === 'todos' || p.area === areaF || (areaF !== 'todos' && p.area === 'Ambas')
+      const matchArea = areaF === 'todos' ? true : p.area === areaF || p.area === 'Ambas'
       return matchProv && matchQ && matchArea
     })
   }, [stockBajo, query, provF, areaF])

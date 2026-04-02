@@ -20,7 +20,7 @@ export default function InventarioPage() {
     return catalogo.filter(p => {
       const matchQ    = !q || p.producto.toLowerCase().includes(q) || p.categoria.toLowerCase().includes(q)
       const matchCat  = catF === 'todos' || p.categoria === catF
-      const matchArea = areaF === 'todos' || p.area === areaF || (areaF !== 'todos' && p.area === 'Ambas')
+      const matchArea = areaF === 'todos' ? true : p.area === areaF || p.area === 'Ambas'
       return matchQ && matchCat && matchArea
     })
   }, [catalogo, query, catF, areaF])
