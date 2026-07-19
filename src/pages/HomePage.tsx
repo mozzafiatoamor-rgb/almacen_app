@@ -35,10 +35,12 @@ export default function HomePage({ onOpenModal, onSwitch }: Props) {
     return map
   }, [movimientos, todayStr])
 
-  const rolLabel = user?.rol === 'admin'
-    ? '🔑 Administrador' : user?.rol === 'encargado'
-    ? '👨‍🍳 Encargado'
-    : '📦 Almacenista'
+  const rolLabel =
+    user?.rol === 'admin'     ? '🔑 Administrador' :
+    user?.rol === 'encargado' ? '👨‍🍳 Encargado'    :
+    user?.rol === 'barista'   ? '🍸 Barista'        :
+    user?.rol === 'cocinero'  ? '🍳 Cocinero'       :
+                                '📦 Almacenista'
 
   return (
     <>
