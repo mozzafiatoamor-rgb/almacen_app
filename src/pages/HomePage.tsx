@@ -1,9 +1,7 @@
-import { useMemo } from 'react'
+import { useMemo, useState } from 'react'
 import { useAuth } from '../auth/AuthContext'
-import { useHomeStats, useStockBajo, useMovimientos, useMermas } from '../hooks/useSheets'
-import { useToast } from '../hooks/useToast'
-
-const JEFE_WA = '529832079693'
+import { useHomeStats, useMovimientos } from '../hooks/useSheets'
+import ReportePanel from '../components/shared/ReportePanel'
 import StatBox from '../components/shared/StatBox'
 import { today } from '../utils/dates'
 import type { Tab } from '../api/types'
@@ -20,50 +18,11 @@ const AREA_CONFIG = [
 ] as const
 
 export default function HomePage({ onOpenModal, onSwitch }: Props) {
-  const { user }                       = useAuth()
-  const stats                          = useHomeStats()
-  const stockBajo                      = useStockBajo()
-  const { data: movimientos = [] }     = useMovimientos()
-  const { data: mermas = [] }          = useMermas()
-  const toast                          = useToast()
-  const todayStr                       = today()
-  function handleEnviarReporte() {
-    const nombre = user?.nombre ?? 'Empleado'
-    const fecha  = new Date().toLocaleDateString('es-MX', {
-      weekday: 'long', year: 'numeric', month: 'long', day: 'numeric',
-    })
-    const entHoyMov = movimientos.filter(m => m.fecha === todayStr && m.tipo === 'Entrada' && m.responsable === nombre)
-    const salHoyMov = movimientos.filter(m => m.fecha === todayStr && m.tipo === 'Salida'  && m.responsable === nombre)
-    const merHoyMov = mermas.filter(m => m.fecha === todayStr && m.responsable === nombre)
-
-    const lines: string[] = [
-      `📊 Reporte Diario — Mozzafiato`,
-      `👤 Empleado: ${nombre}`,
-      `📅 ${fecha}`,
-      ``,
-    ]
-    if (entHoyMov.length > 0) {
-      lines.push(`📥 Entradas (${entHoyMov.length}):`)
-      entHoyMov.forEach(m => lines.push(`  • ${m.producto} ×${m.cantidad}${m.motivo ? ` (${m.motivo})` : ''}`))
-      lines.push(``)
-    }
-    if (salHoyMov.length > 0) {
-      lines.push(`📤 Salidas (${salHoyMov.length}):`)
-      salHoyMov.forEach(m => lines.push(`  • ${m.producto} ×${m.cantidad} → ${m.areaDestino || 'Sin área'}`))
-      lines.push(``)
-    }
-    if (merHoyMov.length > 0) {
-      lines.push(`⚠️ Mermas (${merHoyMov.length}):`)
-      merHoyMov.forEach(m => lines.push(`  • ${m.producto} ×${m.cantidad}${m.motivo ? ` (${m.motivo})` : ''}`))
-      lines.push(``)
-    }
-    if (entHoyMov.length === 0 && salHoyMov.length === 0 && merHoyMov.length === 0) {
-      lines.push(`Sin movimientos registrados hoy.`)
-    }
-
-    window.open(`https://wa.me/${JEFE_WA}?text=${encodeURIComponent(lines.join('\n'))}`, '_blank')
-    toast('WhatsApp abierto con el reporte ✅')
-  }
+  const { user }                   = useAuth()
+  const stats                      = useHomeStats()
+  const { data: movimientos = [] } = useMovimientos()
+  const todayStr                   = today()
+  const [reporteOpen, setReporteOpen] = useState(false)
 
   // Salidas del día grouped by areaDestino
   const salHoyPorArea = useMemo(() => {
@@ -113,7 +72,7 @@ export default function HomePage({ onOpenModal, onSwitch }: Props) {
           { icon: '⚠️', label: 'Merma',           action: () => onOpenModal('merma')        },
           { icon: '🛒', label: 'Lista Compras',   action: () => onSwitch('compras')         },
           { icon: '🔄', label: 'Actualizar',      action: () => window.location.reload()    },
-          { icon: '📊', label: 'Enviar Reporte',  action: handleEnviarReporte               },
+          { icon: '📊', label: 'Enviar Reporte',  action: () => setReporteOpen(true)        },
         ].map(q => (
           <button
             key={q.label}
@@ -206,5 +165,7 @@ export default function HomePage({ onOpenModal, onSwitch }: Props) {
         )}
       </div>
     </div>
+
+      <ReportePanel open={reporteOpen} onClose={() => setReporteOpen(false)} />
   )
 }
