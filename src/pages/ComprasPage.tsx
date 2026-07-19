@@ -10,7 +10,7 @@
  *     - Copy/share the order formatted per proveedor (useful to send to supplier).
  *     - Confirm → saves all items as Entradas in one batch.
  */
-import { useState, useMemo } from 'react'
+import { useState, useMemo, useEffect } from 'react'
 import { useStockBajo, useMovimientos, useInvalidate } from '../hooks/useSheets'
 import { motion, AnimatePresence } from 'framer-motion'
 import SearchBar   from '../components/shared/SearchBar'
@@ -73,10 +73,18 @@ export default function ComprasPage() {
   const [query,        setQuery]       = useState('')
   const [provF,        setProvF]       = useState('todos')
   const [areaF,        setAreaF]       = useState<Area | 'todos'>('todos')
-  // Per-product stepper qty (before adding to cart)
-  const [pendingQty,   setPendingQty]  = useState<Record<string, number>>({})
-  // Cart: products confirmed for this order
-  const [cart,         setCart]        = useState<Record<string, CartItem>>({})
+  // Per-product stepper qty (before adding to cart) — persisted across tab navigation
+  const [pendingQty, setPendingQty] = useState<Record<string, number>>(() => {
+    try { const s = localStorage.getItem('mz_pendingQty'); return s ? JSON.parse(s) : {} } catch { return {} }
+  })
+  // Cart: products confirmed for this order — persisted across tab navigation
+  const [cart, setCart] = useState<Record<string, CartItem>>(() => {
+    try { const s = localStorage.getItem('mz_cart'); return s ? JSON.parse(s) : {} } catch { return {} }
+  })
+
+  // Sync to localStorage on every change
+  useEffect(() => { try { localStorage.setItem('mz_cart', JSON.stringify(cart)) } catch {} }, [cart])
+  useEffect(() => { try { localStorage.setItem('mz_pendingQty', JSON.stringify(pendingQty)) } catch {} }, [pendingQty])
   const [showSummary,  setShowSummary] = useState(false)
   const [saving,       setSaving]      = useState(false)
 
@@ -281,6 +289,7 @@ export default function ComprasPage() {
     setCart({})
     setShowSummary(false)
     setPendingQty({})
+    try { localStorage.removeItem('mz_cart'); localStorage.removeItem('mz_pendingQty') } catch {}
     invalidate.catalogo()
     invalidate.movimientos()
     invalidate.bitacora()
