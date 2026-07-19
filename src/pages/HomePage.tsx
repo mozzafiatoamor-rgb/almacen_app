@@ -121,11 +121,11 @@ export default function HomePage({ onOpenModal, onSwitch }: Props) {
       )}
 
       {/* Stock bajo alert */}
-      {stockBajo.length > 0 && (
+      {stats.stockBajoCount > 0 && (
         <div className="bg-surface rounded-card border border-white/[0.04] mb-4 overflow-hidden">
           <div className="flex justify-between items-center px-4 py-3 border-b border-surface3">
             <span className="font-bold text-sm">🚨 Stock Bajo</span>
-            <span className="text-xs bg-red/20 text-red px-2 py-0.5 rounded-full font-semibold">{stockBajo.length}</span>
+            <span className="text-xs bg-red/20 text-red px-2 py-0.5 rounded-full font-semibold">{stats.stockBajoCount}</span>
           </div>
           {stats.stockBajoItems.map(p => (
             <div key={p.producto} className="flex items-center px-4 py-3 border-b border-surface3/50 last:border-0 gap-3">
