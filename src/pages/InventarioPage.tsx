@@ -21,7 +21,7 @@ const PRIORIDAD_COLOR: Record<number, string> = {
 export default function InventarioPage() {
   const { data: catalogo = [], isLoading } = useCatalogo()
   const stockBajo  = useStockBajo()
-  const { user }   = useAuth()
+  const { user, userArea, isAreaRestricted } = useAuth()
   const toast      = useToast()
 
   const [query,   setQuery]   = useState('')
@@ -36,16 +36,19 @@ export default function InventarioPage() {
   const cats = useMemo(() => getCategoriasFromCatalogo(catalogo), [catalogo])
 
   const filtered = useMemo(() => {
-    const q = query.toLowerCase()
+    const q            = query.toLowerCase()
+    const effectiveArea = isAreaRestricted ? userArea : areaF
     return catalogo
       .filter(p => {
         const matchQ    = !q || p.producto.toLowerCase().includes(q) || p.categoria.toLowerCase().includes(q)
         const matchCat  = catF === 'todos' || p.categoria === catF
-        const matchArea = areaF === 'todos' ? true : p.area === areaF || p.area === 'Ambas'
+        const matchArea = effectiveArea === 'todos' || effectiveArea === 'Todas'
+          ? true
+          : p.area === effectiveArea || p.area === 'Ambas'
         return matchQ && matchCat && matchArea
       })
       .sort((a, b) => b.prioridad - a.prioridad)
-  }, [catalogo, query, catF, areaF])
+  }, [catalogo, query, catF, areaF, isAreaRestricted, userArea])
 
   function toggleItem(nombre: string) {
     setSelectedItems(prev => {
@@ -93,7 +96,7 @@ export default function InventarioPage() {
       </div>
 
       <SearchBar value={query} onChange={setQuery} placeholder="Buscar producto o categoría…" />
-      <AreaFilter active={areaF} onChange={setAreaF} />
+      {!isAreaRestricted && <AreaFilter active={areaF} onChange={setAreaF} />}
       <FilterPills options={cats} active={catF} onSelect={setCatF} />
 
       {filtered.length === 0

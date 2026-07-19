@@ -1,12 +1,14 @@
 import { createContext, useContext, useState, useCallback, type ReactNode } from 'react'
-import type { CurrentUser } from '../api/types'
+import type { CurrentUser, Area } from '../api/types'
 
 interface AuthContextValue {
-  user:    CurrentUser | null
-  login:   (u: CurrentUser) => void
-  logout:  () => void
-  isAdmin:    boolean
-  canManage:  boolean
+  user:             CurrentUser | null
+  login:            (u: CurrentUser) => void
+  logout:           () => void
+  isAdmin:          boolean
+  canManage:        boolean
+  userArea:         Area | 'Todas'
+  isAreaRestricted: boolean
 }
 
 const SESSION_KEY = 'mozz_currentUser'
@@ -35,11 +37,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     localStorage.removeItem(SESSION_KEY)
   }, [])
 
-  const isAdmin   = user?.rol === 'admin'
-  const canManage = user?.rol === 'admin' || user?.rol === 'encargado'
+  const isAdmin          = user?.rol === 'admin'
+  const canManage        = user?.rol === 'admin' || user?.rol === 'encargado'
+  const isAreaRestricted = user?.rol === 'barista' || user?.rol === 'cocinero'
+  const userArea: Area | 'Todas' =
+    user?.rol === 'barista'  ? 'Barra'  :
+    user?.rol === 'cocinero' ? 'Cocina' : 'Todas'
 
   return (
-    <AuthContext.Provider value={{ user, login, logout, isAdmin, canManage }}>
+    <AuthContext.Provider value={{ user, login, logout, isAdmin, canManage, userArea, isAreaRestricted }}>
       {children}
     </AuthContext.Provider>
   )

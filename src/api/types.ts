@@ -64,12 +64,14 @@ export interface Merma {
   _row: number
 }
 
+export type Rol = 'admin' | 'encargado' | 'almacenista' | 'barista' | 'cocinero'
+
 export interface Usuario {
   id: string
   usuario: string
   pin: string        // replaces password — stored as plain text in the sheet
   nombre: string
-  rol: 'admin' | 'encargado' | 'almacenista'
+  rol:    Rol
   activo: string
   _row: number
 }
@@ -169,5 +171,5 @@ export interface CurrentUser {
   id: string
   usuario: string
   nombre: string
-  rol: 'admin' | 'encargado' | 'almacenista'
+  rol: Rol
 }

@@ -12,24 +12,24 @@ import { useAuth } from '../../auth/AuthContext'
 import type { Tab } from '../../api/types'
 
 interface NavItem {
-  tab:    Tab
-  icon:   string
-  label:  string
-  admin?: boolean
-  color?: string
+  tab:         Tab
+  icon:        string
+  label:       string
+  admin?:      boolean   // only for admin
+  restricted?: boolean   // hidden for barista/cocinero
 }
 
 const NAV_ITEMS: NavItem[] = [
-  { tab: 'home',        icon: '🏠', label: 'Inicio'     },
-  { tab: 'movimientos', icon: '📥', label: 'Mov.'       },
-  { tab: 'inventario',  icon: '📦', label: 'Inventario' },
-  { tab: 'compras',     icon: '🛒', label: 'Compras'    },
-  { tab: 'mermas',      icon: '⚠️', label: 'Mermas'     },
-  { tab: 'catalogo',    icon: '📋', label: 'Catálogo'   },
-  { tab: 'reportes',    icon: '📊', label: 'Reportes'   },
-  { tab: 'gastos',      icon: '💰', label: 'Gastos'     },
-  { tab: 'bitacora',    icon: '📜', label: 'Bitácora'   },
-  { tab: 'usuarios',    icon: '👥', label: 'Usuarios',  admin: true },
+  { tab: 'home',        icon: '🏠', label: 'Inicio'                          },
+  { tab: 'movimientos', icon: '📥', label: 'Mov.'                            },
+  { tab: 'inventario',  icon: '📦', label: 'Inventario'                      },
+  { tab: 'compras',     icon: '🛒', label: 'Compras',    restricted: true    },
+  { tab: 'mermas',      icon: '⚠️', label: 'Mermas',     restricted: true    },
+  { tab: 'catalogo',    icon: '📋', label: 'Catálogo',   restricted: true    },
+  { tab: 'reportes',    icon: '📊', label: 'Reportes',   restricted: true    },
+  { tab: 'gastos',      icon: '💰', label: 'Gastos',     restricted: true    },
+  { tab: 'bitacora',    icon: '📜', label: 'Bitácora',   restricted: true    },
+  { tab: 'usuarios',    icon: '👥', label: 'Usuarios',   admin: true         },
 ]
 
 interface Props {
@@ -41,10 +41,14 @@ interface Props {
 const ITEMS_PER_COL = 5
 
 export default function BottomNav({ activeTab, onSwitch }: Props) {
-  const { isAdmin }  = useAuth()
+  const { isAdmin, isAreaRestricted } = useAuth()
   const [open, setOpen] = useState(false)
 
-  const visible = NAV_ITEMS.filter(n => !n.admin || isAdmin)
+  const visible = NAV_ITEMS.filter(n => {
+    if (n.admin       && !isAdmin)          return false
+    if (n.restricted  && isAreaRestricted)  return false
+    return true
+  })
 
   // Split into two columns: left col, right col
   const leftCol  = visible.filter((_, i) => i % 2 === 0)

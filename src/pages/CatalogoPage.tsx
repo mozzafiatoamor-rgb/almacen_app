@@ -23,7 +23,7 @@ const PRIORIDAD_COLOR: Record<number, string> = {
 
 export default function CatalogoPage() {
   const { data: catalogoAll = [], isLoading } = useCatalogo()
-  const { isAdmin, canManage, user }          = useAuth()
+  const { isAdmin, canManage, user, userArea, isAreaRestricted } = useAuth()
   const toast                                 = useToast()
   const invalidate                            = useInvalidate()
 
@@ -44,14 +44,17 @@ export default function CatalogoPage() {
   const cats = useMemo(() => getCategoriasFromCatalogo(catalogo), [catalogo])
 
   const filtered = useMemo(() => {
-    const q = query.toLowerCase()
+    const q            = query.toLowerCase()
+    const effectiveArea = isAreaRestricted ? userArea : areaF
     return displayList.filter(p => {
       const matchQ    = !q || p.producto.toLowerCase().includes(q) || p.categoria.toLowerCase().includes(q)
       const matchCat  = catF === 'todos' || p.categoria === catF
-      const matchArea = areaF === 'todos' ? true : p.area === areaF || p.area === 'Ambas'
+      const matchArea = effectiveArea === 'todos' || effectiveArea === 'Todas'
+        ? true
+        : p.area === effectiveArea || p.area === 'Ambas'
       return matchQ && matchCat && matchArea
     })
-  }, [displayList, query, catF, areaF])
+  }, [displayList, query, catF, areaF, isAreaRestricted, userArea])
 
   async function handleDelete(e: React.MouseEvent, p: Producto) {
     e.stopPropagation()
@@ -140,7 +143,7 @@ export default function CatalogoPage() {
       </div>
 
       <SearchBar value={query} onChange={setQuery} placeholder="Buscar producto o categoría…" />
-      <AreaFilter active={areaF} onChange={setAreaF} />
+      {!isAreaRestricted && <AreaFilter active={areaF} onChange={setAreaF} />}
       <FilterPills options={cats} active={catF} onSelect={setCatF} />
 
       {filtered.length === 0

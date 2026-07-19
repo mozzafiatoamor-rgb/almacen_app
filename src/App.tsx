@@ -107,7 +107,12 @@ function MainApp() {
     exit:    { opacity: 0, x: -10 },
   }
 
-  const rolLabel = user?.rol === 'admin' ? '🔑 Administrador' : user?.rol === 'encargado' ? '👨‍🍳 Encargado' : '📦 Almacenista'
+  const rolLabel =
+    user?.rol === 'admin'      ? '🔑 Administrador' :
+    user?.rol === 'encargado'  ? '👨‍🍳 Encargado'   :
+    user?.rol === 'barista'    ? '🍸 Barista'        :
+    user?.rol === 'cocinero'   ? '🍳 Cocinero'       :
+                                 '📦 Almacenista'
 
   return (
     <div className="min-h-screen bg-bg text-text1 font-sans">

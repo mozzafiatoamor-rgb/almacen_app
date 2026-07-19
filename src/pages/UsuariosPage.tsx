@@ -9,9 +9,17 @@ import { nextId } from '../utils/ids'
 import { SHEET_NAMES } from '../api/config'
 import Modal from '../components/layout/Modal'
 import EmptyState from '../components/shared/EmptyState'
-import type { Usuario } from '../api/types'
+import type { Usuario, Rol } from '../api/types'
 
-const ROLES = ['almacenista', 'encargado', 'admin'] as const
+const ROLES: Rol[] = ['barista', 'cocinero', 'almacenista', 'encargado', 'admin']
+
+const ROL_LABEL: Record<Rol, string> = {
+  barista:     '🍸 Barista',
+  cocinero:    '🍳 Cocinero',
+  almacenista: '📦 Almacenista',
+  encargado:   '👨‍🍳 Encargado',
+  admin:       '🔑 Admin',
+}
 
 export default function UsuariosPage() {
   const { data: usuarios = [], isLoading } = useUsuarios()
@@ -39,8 +47,7 @@ export default function UsuariosPage() {
     }
   }
 
-  const rolLabel = (rol: string) =>
-    rol === 'admin' ? '🔑 Admin' : rol === 'encargado' ? '👨‍🍳 Encargado' : '📦 Almacenista'
+  const rolLabel = (rol: string) => ROL_LABEL[rol as Rol] ?? rol
 
   if (isLoading) return <div className="flex items-center justify-center py-16 text-text2 text-sm">⏳ Cargando…</div>
 
@@ -119,7 +126,7 @@ function UserForm({ usuarios, editUser, currentUser, onClose, onSaved }: UserFor
   const [usuario, setUsuario] = useState(editUser?.usuario ?? '')
   const [nombre,  setNombre]  = useState(editUser?.nombre  ?? '')
   const [pin,     setPin]     = useState(editUser?.pin     ?? '')
-  const [rol,     setRol]     = useState<typeof ROLES[number]>(editUser?.rol ?? 'almacenista')
+  const [rol,     setRol]     = useState<Rol>(editUser?.rol ?? 'almacenista')
   const [saving,  setSaving]  = useState(false)
 
   async function submit() {
@@ -181,8 +188,8 @@ function UserForm({ usuarios, editUser, currentUser, onClose, onSaved }: UserFor
       </div>
       <div className="mb-5">
         <label className="block text-xs font-semibold text-text2 mb-1.5">Rol</label>
-        <select value={rol} onChange={e => setRol(e.target.value as typeof ROLES[number])} className={input}>
-          {ROLES.map(r => <option key={r} value={r}>{r === 'admin' ? '🔑 Administrador' : r === 'encargado' ? '👨‍🍳 Encargado' : '📦 Almacenista'}</option>)}
+        <select value={rol} onChange={e => setRol(e.target.value as Rol)} className={input}>
+          {ROLES.map(r => <option key={r} value={r}>{ROL_LABEL[r]}</option>)}
         </select>
       </div>
 

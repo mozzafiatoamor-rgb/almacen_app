@@ -34,14 +34,16 @@ interface Props {
 }
 
 export default function MovimientoForm({ tipo, catalogo, movimientos, onClose }: Props) {
-  const { user }    = useAuth()
+  const { user, userArea, isAreaRestricted } = useAuth()
   const toast       = useToast()
   const invalidate  = useInvalidate()
 
-  // For Salidas: load last area used by this user from localStorage
-  const defaultArea = tipo === 'Salida' && user
-    ? (getLastArea(user.nombre) as Area) || '' as unknown as Area
-    : '' as unknown as Area
+  // For Salidas: if user is area-restricted, lock to their area; else load last used
+  const defaultArea: Area | '' = tipo === 'Salida' && user
+    ? isAreaRestricted
+      ? userArea as Area
+      : (getLastArea(user.nombre) as Area) || ''
+    : ''
 
   const [product,      setProduct]     = useState<Producto | null>(null)
   const [qty,          setQty]         = useState('')
@@ -53,6 +55,11 @@ export default function MovimientoForm({ tipo, catalogo, movimientos, onClose }:
   const [cart,         setCart]        = useState<CartItemMov[]>([])
   const [saving,       setSaving]      = useState(false)
   const [scanning,     setScanning]    = useState(false)
+
+  // Restrict catalog to user's area if area-restricted role
+  const visibleCatalogo = isAreaRestricted
+    ? catalogo.filter(p => p.area === (userArea as Area) || p.area === 'Ambas')
+    : catalogo
 
   const isEnt   = tipo === 'Entrada'
   const color   = isEnt ? 'text-green' : 'text-orange'
@@ -78,7 +85,7 @@ export default function MovimientoForm({ tipo, catalogo, movimientos, onClose }:
   // Called when barcode is detected — try to match with catalog
   function handleBarcodeDetected(code: string) {
     setScanning(false)
-    const match = catalogo.find(p => p.codigoBarras === code)
+    const match = visibleCatalogo.find(p => p.codigoBarras === code)
     if (match) {
       setProduct(match)
       toast(`✅ ${match.producto} encontrado`)
@@ -211,7 +218,7 @@ export default function MovimientoForm({ tipo, catalogo, movimientos, onClose }:
           <label className="block text-xs font-semibold text-text2 mb-1.5">Producto</label>
           <div className="flex gap-2">
             <div className="flex-1">
-              <ProductAutocomplete catalogo={catalogo} value={product} onChange={setProduct} />
+              <ProductAutocomplete catalogo={visibleCatalogo} value={product} onChange={setProduct} />
             </div>
             <button
               onClick={() => setScanning(true)}
@@ -321,27 +328,38 @@ export default function MovimientoForm({ tipo, catalogo, movimientos, onClose }:
         {!isEnt && (
           <div className="mb-3">
             <label className="block text-xs font-semibold text-text2 mb-1.5">
-              Área destino <span className="text-red font-bold">*</span>
+              Área destino {!isAreaRestricted && <span className="text-red font-bold">*</span>}
             </label>
-            <div className="grid grid-cols-3 gap-1.5">
-              {AREAS_DESTINO.map(a => (
-                <button
-                  key={a}
-                  type="button"
-                  onClick={() => setAreaDestino(a)}
-                  className={`flex flex-col items-center gap-0.5 py-2.5 rounded-xl text-xs font-semibold transition-all border ${
-                    areaDestino === a
-                      ? 'bg-orange text-white border-orange shadow-sm'
-                      : 'bg-surface2 text-text2 border-surface3'
-                  }`}
-                >
-                  <span className="text-base">{AREA_ICONS[a]}</span>
-                  <span>{a}</span>
-                </button>
-              ))}
-            </div>
-            {!areaDestino && (
-              <p className="text-[10px] text-orange mt-1.5">Selecciona a dónde va este producto</p>
+            {isAreaRestricted ? (
+              /* Locked to user's area */
+              <div className="flex items-center gap-2.5 bg-surface2 border border-surface3 rounded-xl px-3.5 py-3">
+                <span className="text-xl">{AREA_ICONS[userArea as Area]}</span>
+                <span className="text-sm font-semibold text-text1">{userArea}</span>
+                <span className="text-xs text-text2 ml-auto">Fijo según tu acceso</span>
+              </div>
+            ) : (
+              <>
+                <div className="grid grid-cols-3 gap-1.5">
+                  {AREAS_DESTINO.map(a => (
+                    <button
+                      key={a}
+                      type="button"
+                      onClick={() => setAreaDestino(a)}
+                      className={`flex flex-col items-center gap-0.5 py-2.5 rounded-xl text-xs font-semibold transition-all border ${
+                        areaDestino === a
+                          ? 'bg-orange text-white border-orange shadow-sm'
+                          : 'bg-surface2 text-text2 border-surface3'
+                      }`}
+                    >
+                      <span className="text-base">{AREA_ICONS[a]}</span>
+                      <span>{a}</span>
+                    </button>
+                  ))}
+                </div>
+                {!areaDestino && (
+                  <p className="text-[10px] text-orange mt-1.5">Selecciona a dónde va este producto</p>
+                )}
+              </>
             )}
           </div>
         )}
