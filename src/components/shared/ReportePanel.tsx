@@ -41,7 +41,20 @@ export default function ReportePanel({ open, onClose }: Props) {
 
   // ── Item selection for Stock Bajo / Pedido (shared list) ──────────────────
   const [selectedStock, setSelectedStock] = useState<Set<string>>(new Set())
+  const [catFilter,     setCatFilter]     = useState('Todas')
   const [nota,          setNota]          = useState('')
+
+  // Unique categories from stock bajo list
+  const stockCats = useMemo(() =>
+    ['Todas', ...[...new Set(stockBajo.map(i => i.categoria))].sort()],
+    [stockBajo]
+  )
+
+  // Items visible after category filter
+  const visibleStockItems = useMemo(() =>
+    catFilter === 'Todas' ? stockBajo : stockBajo.filter(i => i.categoria === catFilter),
+    [stockBajo, catFilter]
+  )
 
   // ── Today's data filtered by this employee ────────────────────────────────
   const entHoy = useMemo(() =>
@@ -66,8 +79,8 @@ export default function ReportePanel({ open, onClose }: Props) {
     })
   }
 
-  function selectAll()   { setSelectedStock(new Set(stockBajo.map(i => i.producto))) }
-  function deselectAll() { setSelectedStock(new Set()) }
+  function selectAll()   { setSelectedStock(prev => new Set([...prev, ...visibleStockItems.map(i => i.producto)])) }
+  function deselectAll() { setSelectedStock(prev => { const n = new Set(prev); visibleStockItems.forEach(i => n.delete(i.producto)); return n }) }
 
   // ── Message builder ───────────────────────────────────────────────────────
   function buildMessage(): string {
@@ -145,8 +158,8 @@ export default function ReportePanel({ open, onClose }: Props) {
 
   return (
     <>
-      <div className="fixed inset-0 z-50 bg-black/60" onClick={onClose} />
-      <div className="fixed bottom-0 left-0 right-0 z-50 bg-[#162030] rounded-t-2xl max-h-[88vh] flex flex-col">
+      <div className="fixed inset-0 z-[120] bg-black/60" onClick={onClose} />
+      <div className="fixed bottom-0 left-0 right-0 z-[125] bg-[#162030] rounded-t-2xl max-h-[88vh] flex flex-col">
 
         {/* Handle */}
         <div className="flex justify-center pt-3 pb-1">
@@ -181,53 +194,73 @@ export default function ReportePanel({ open, onClose }: Props) {
                 </div>
               ) : (
                 <>
-                  {/* Select all / none */}
-                  <div className="flex gap-2 mb-2">
-                    <button onClick={selectAll}
-                      className="text-xs text-accent font-semibold">
-                      Seleccionar todo
+                  {/* Category filter pills */}
+                  {stockCats.length > 2 && (
+                    <div className="flex gap-1.5 overflow-x-auto pb-2 mb-1" style={{ scrollbarWidth: 'none' }}>
+                      {stockCats.map(cat => (
+                        <button
+                          key={cat}
+                          onClick={() => setCatFilter(cat)}
+                          className={`flex-shrink-0 text-xs font-semibold px-3 py-1.5 rounded-full border transition-colors ${
+                            catFilter === cat
+                              ? 'bg-accent text-white border-accent'
+                              : 'bg-surface2 text-text2 border-surface3'
+                          }`}
+                        >
+                          {cat}
+                        </button>
+                      ))}
+                    </div>
+                  )}
+
+                  {/* Select all / none for current filter */}
+                  <div className="flex gap-2 mb-2 items-center">
+                    <button onClick={selectAll} className="text-xs text-accent font-semibold">
+                      + Todos{catFilter !== 'Todas' ? ` (${catFilter})` : ''}
                     </button>
-                    <span className="text-text2">·</span>
-                    <button onClick={deselectAll}
-                      className="text-xs text-text2 font-semibold">
-                      Ninguno
+                    <span className="text-text2 text-xs">·</span>
+                    <button onClick={deselectAll} className="text-xs text-text2 font-semibold">
+                      − Quitar{catFilter !== 'Todas' ? ` (${catFilter})` : ' todos'}
                     </button>
-                    <span className="ml-auto text-xs text-text2">
-                      {selectedStock.size}/{stockBajo.length} seleccionados
+                    <span className="ml-auto text-xs text-text2 font-semibold">
+                      {selectedStock.size}/{stockBajo.length} ✓
                     </span>
                   </div>
 
                   <div className="border border-surface3 rounded-xl overflow-hidden">
-                    {stockBajo.map(item => {
-                      const checked = selectedStock.has(item.producto)
-                      return (
-                        <button
-                          key={item.producto}
-                          onClick={() => toggleItem(item.producto)}
-                          className={`w-full flex items-center gap-3 px-3 py-3 border-b border-surface3/50 last:border-0 text-left transition-opacity ${checked ? 'opacity-100' : 'opacity-45'}`}
-                        >
-                          <div className={`w-5 h-5 rounded border-2 flex items-center justify-center flex-shrink-0 transition-colors ${checked ? 'bg-accent border-accent' : 'border-white/20'}`}>
-                            {checked && <span className="text-white text-xs font-bold">✓</span>}
-                          </div>
-                          <div className="flex-1 min-w-0">
-                            <div className="flex items-center gap-1.5 flex-wrap">
-                              <span className="text-sm font-semibold text-text1">{item.producto}</span>
-                              <span className={`text-[10px] border px-1 py-0.5 rounded-full font-bold ${PRIORIDAD_COLOR[item.prioridad]}`}>
-                                P{item.prioridad}
-                              </span>
-                            </div>
-                            <div className="text-xs text-text2 truncate">
-                              {item.proveedor} · Faltan: {item.faltante} {item.unidad}
-                              {item.precioRef > 0 && ` · ~$${(item.faltante * item.precioRef).toFixed(0)}`}
-                            </div>
-                          </div>
-                          <div className="text-right flex-shrink-0">
-                            <div className="font-mono text-red font-bold text-sm">{item.stockActual}</div>
-                            <div className="text-[10px] text-text2">/{item.stockMinimo}</div>
-                          </div>
-                        </button>
-                      )
-                    })}
+                    {visibleStockItems.length === 0
+                      ? <div className="px-3 py-4 text-xs text-text2 text-center">Sin productos en esta categoría</div>
+                      : visibleStockItems.map(item => {
+                          const checked = selectedStock.has(item.producto)
+                          return (
+                            <button
+                              key={item.producto}
+                              onClick={() => toggleItem(item.producto)}
+                              className={`w-full flex items-center gap-3 px-3 py-3 border-b border-surface3/50 last:border-0 text-left transition-opacity ${checked ? 'opacity-100' : 'opacity-45'}`}
+                            >
+                              <div className={`w-5 h-5 rounded border-2 flex items-center justify-center flex-shrink-0 transition-colors ${checked ? 'bg-accent border-accent' : 'border-white/20'}`}>
+                                {checked && <span className="text-white text-xs font-bold">✓</span>}
+                              </div>
+                              <div className="flex-1 min-w-0">
+                                <div className="flex items-center gap-1.5 flex-wrap">
+                                  <span className="text-sm font-semibold text-text1">{item.producto}</span>
+                                  <span className={`text-[10px] border px-1 py-0.5 rounded-full font-bold ${PRIORIDAD_COLOR[item.prioridad]}`}>
+                                    P{item.prioridad}
+                                  </span>
+                                </div>
+                                <div className="text-xs text-text2 truncate">
+                                  {item.proveedor} · Faltan: {item.faltante} {item.unidad}
+                                  {item.precioRef > 0 && ` · ~$${(item.faltante * item.precioRef).toFixed(0)}`}
+                                </div>
+                              </div>
+                              <div className="text-right flex-shrink-0">
+                                <div className="font-mono text-red font-bold text-sm">{item.stockActual}</div>
+                                <div className="text-[10px] text-text2">/{item.stockMinimo}</div>
+                              </div>
+                            </button>
+                          )
+                        })
+                    }
                   </div>
                 </>
               )}
