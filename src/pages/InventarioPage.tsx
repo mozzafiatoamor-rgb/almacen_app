@@ -2,7 +2,8 @@ import { useState, useMemo } from 'react'
 import { useCatalogo, useStockBajo, getCategoriasFromCatalogo } from '../hooks/useSheets'
 import { useAuth } from '../auth/AuthContext'
 import { useToast } from '../hooks/useToast'
-import { sendReport } from '../api/appscript'
+
+const JEFE_WA = '529832079693'
 import SearchBar from '../components/shared/SearchBar'
 import FilterPills from '../components/shared/FilterPills'
 import EmptyState from '../components/shared/EmptyState'
@@ -28,10 +29,9 @@ export default function InventarioPage() {
   const [areaF,   setAreaF]   = useState<Area | 'todos'>('todos')
 
   // Urgente bottom sheet state
-  const [urgentOpen,     setUrgentOpen]     = useState(false)
-  const [selectedItems,  setSelectedItems]  = useState<Set<string>>(new Set())
-  const [nota,           setNota]           = useState('')
-  const [sending,        setSending]        = useState(false)
+  const [urgentOpen,    setUrgentOpen]    = useState(false)
+  const [selectedItems, setSelectedItems] = useState<Set<string>>(new Set())
+  const [nota,          setNota]          = useState('')
 
   const cats = useMemo(() => getCategoriasFromCatalogo(catalogo), [catalogo])
 
@@ -56,40 +56,32 @@ export default function InventarioPage() {
     })
   }
 
-  async function handleSendUrgent() {
+  function handleSendUrgent() {
     const selected = stockBajo.filter(i => selectedItems.has(i.producto))
     if (selected.length === 0) {
       toast('Selecciona al menos un producto', 'error')
       return
     }
-    setSending(true)
-    try {
-      const fecha = new Date().toLocaleDateString('es-MX', {
-        weekday: 'long', year: 'numeric', month: 'long', day: 'numeric',
-      })
-      const lines = selected.map(i =>
-        `• ${i.producto} (P${i.prioridad}) — Stock: ${i.stockActual}/${i.stockMinimo}, Faltan: ${i.faltante} ${i.unidad} [${i.proveedor}]`
-      )
-      const mensaje = [
-        `🚨 ALERTA URGENTE — Mozzafiato`,
-        `👤 ${user?.nombre ?? 'Empleado'}`,
-        `📅 ${fecha}`,
-        ``,
-        `Productos con stock bajo:`,
-        ...lines,
-        nota ? `\n📝 Nota: ${nota}` : '',
-      ].filter(Boolean).join('\n')
+    const fecha = new Date().toLocaleDateString('es-MX', {
+      weekday: 'long', year: 'numeric', month: 'long', day: 'numeric',
+    })
+    const lines = selected.map(i =>
+      `• ${i.producto} (P${i.prioridad}) — Stock: ${i.stockActual}/${i.stockMinimo}, Faltan: ${i.faltante} ${i.unidad} [${i.proveedor}]`
+    )
+    const mensaje = [
+      `🚨 ALERTA URGENTE — Mozzafiato`,
+      `👤 ${user?.nombre ?? 'Empleado'}`,
+      `📅 ${fecha}`,
+      ``,
+      `Productos con stock bajo:`,
+      ...lines,
+      nota ? `📝 Nota: ${nota}` : '',
+    ].filter(Boolean).join('\n')
 
-      await sendReport({ reportType: 'urgent', empleado: user?.nombre ?? '', mensaje })
-      toast('Alerta urgente enviada ✅')
-      setUrgentOpen(false)
-      setSelectedItems(new Set())
-      setNota('')
-    } catch {
-      toast('Error al enviar alerta', 'error')
-    } finally {
-      setSending(false)
-    }
+    window.open(`https://wa.me/${JEFE_WA}?text=${encodeURIComponent(mensaje)}`, '_blank')
+    setUrgentOpen(false)
+    setSelectedItems(new Set())
+    setNota('')
   }
 
   if (isLoading) return <div className="flex items-center justify-center py-16 text-text2 text-sm">⏳ Cargando…</div>
@@ -214,10 +206,10 @@ export default function InventarioPage() {
               />
               <button
                 onClick={handleSendUrgent}
-                disabled={sending || selectedItems.size === 0}
+                disabled={selectedItems.size === 0}
                 className="w-full py-3 bg-red text-white rounded-xl font-semibold text-sm disabled:opacity-40 active:opacity-80 transition-opacity"
               >
-                {sending ? '⏳ Enviando…' : `📱 Enviar alerta (${selectedItems.size} producto${selectedItems.size !== 1 ? 's' : ''})`}
+                {`📱 Abrir WhatsApp (${selectedItems.size} producto${selectedItems.size !== 1 ? 's' : ''})`}
               </button>
             </div>
           </div>

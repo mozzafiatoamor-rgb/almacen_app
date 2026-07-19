@@ -1,8 +1,9 @@
-import { useMemo, useState } from 'react'
+import { useMemo } from 'react'
 import { useAuth } from '../auth/AuthContext'
 import { useHomeStats, useStockBajo, useMovimientos, useMermas } from '../hooks/useSheets'
 import { useToast } from '../hooks/useToast'
-import { sendReport } from '../api/appscript'
+
+const JEFE_WA = '529832079693'
 import StatBox from '../components/shared/StatBox'
 import { today } from '../utils/dates'
 import type { Tab } from '../api/types'
@@ -26,9 +27,7 @@ export default function HomePage({ onOpenModal, onSwitch }: Props) {
   const { data: mermas = [] }          = useMermas()
   const toast                          = useToast()
   const todayStr                       = today()
-  const [sendingReport, setSendingReport] = useState(false)
-
-  async function handleEnviarReporte() {
+  function handleEnviarReporte() {
     const nombre = user?.nombre ?? 'Empleado'
     const fecha  = new Date().toLocaleDateString('es-MX', {
       weekday: 'long', year: 'numeric', month: 'long', day: 'numeric',
@@ -62,15 +61,8 @@ export default function HomePage({ onOpenModal, onSwitch }: Props) {
       lines.push(`Sin movimientos registrados hoy.`)
     }
 
-    setSendingReport(true)
-    try {
-      await sendReport({ reportType: 'daily', empleado: nombre, mensaje: lines.join('\n') })
-      toast('Reporte del día enviado ✅')
-    } catch {
-      toast('Error al enviar reporte', 'error')
-    } finally {
-      setSendingReport(false)
-    }
+    window.open(`https://wa.me/${JEFE_WA}?text=${encodeURIComponent(lines.join('\n'))}`, '_blank')
+    toast('WhatsApp abierto con el reporte ✅')
   }
 
   // Salidas del día grouped by areaDestino
@@ -116,20 +108,19 @@ export default function HomePage({ onOpenModal, onSwitch }: Props) {
       {/* Quick actions */}
       <div className="grid grid-cols-2 gap-2.5 mb-4">
         {[
-          { icon: '📥', label: 'Entrada',        action: () => onOpenModal('entrada'), loading: false },
-          { icon: '📤', label: 'Salida',          action: () => onOpenModal('salida'),  loading: false },
-          { icon: '⚠️', label: 'Merma',           action: () => onOpenModal('merma'),   loading: false },
-          { icon: '🛒', label: 'Lista Compras',   action: () => onSwitch('compras'),    loading: false },
-          { icon: '🔄', label: 'Actualizar',      action: () => window.location.reload(), loading: false },
-          { icon: '📊', label: sendingReport ? 'Enviando…' : 'Enviar Reporte', action: () => { void handleEnviarReporte() }, loading: sendingReport },
+          { icon: '📥', label: 'Entrada',        action: () => onOpenModal('entrada')      },
+          { icon: '📤', label: 'Salida',          action: () => onOpenModal('salida')       },
+          { icon: '⚠️', label: 'Merma',           action: () => onOpenModal('merma')        },
+          { icon: '🛒', label: 'Lista Compras',   action: () => onSwitch('compras')         },
+          { icon: '🔄', label: 'Actualizar',      action: () => window.location.reload()    },
+          { icon: '📊', label: 'Enviar Reporte',  action: handleEnviarReporte               },
         ].map(q => (
           <button
             key={q.label}
             onClick={q.action}
-            disabled={q.loading}
-            className="flex flex-col items-center gap-1.5 py-4 px-2 bg-surface rounded-card border border-white/[0.04] hover:border-accent/30 transition-colors disabled:opacity-50"
+            className="flex flex-col items-center gap-1.5 py-4 px-2 bg-surface rounded-card border border-white/[0.04] hover:border-accent/30 transition-colors"
           >
-            <span className="text-2xl">{q.loading ? '⏳' : q.icon}</span>
+            <span className="text-2xl">{q.icon}</span>
             <span className="text-[11px] font-medium text-text1">{q.label}</span>
           </button>
         ))}
