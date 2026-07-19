@@ -41,6 +41,7 @@ export default function HomePage({ onOpenModal, onSwitch }: Props) {
     : '📦 Almacenista'
 
   return (
+    <>
     <div className="px-4 py-4 pb-24">
       {/* User banner */}
       <div className="flex items-center gap-3 bg-surface rounded-card px-4 py-3 mb-4 border border-white/[0.04]">
@@ -165,7 +166,7 @@ export default function HomePage({ onOpenModal, onSwitch }: Props) {
         )}
       </div>
     </div>
-
       <ReportePanel open={reporteOpen} onClose={() => setReporteOpen(false)} />
+    </>
   )
 }
