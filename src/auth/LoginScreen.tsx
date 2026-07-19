@@ -51,6 +51,8 @@ export default function LoginScreen() {
   const rolLabel = (rol: string) =>
     rol === 'admin'      ? '🔑 Administrador' :
     rol === 'encargado'  ? '👨‍🍳 Encargado'     :
+    rol === 'barista'    ? '🍸 Barista'        :
+    rol === 'cocinero'   ? '🍳 Cocinero'       :
                            '📦 Almacenista'
 
   return (
