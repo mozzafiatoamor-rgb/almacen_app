@@ -32,9 +32,9 @@ export default function ReportePanel({ open, onClose }: Props) {
   const todayStr                   = today()
   const nombre                     = user?.nombre ?? 'Empleado'
 
-  // ── Section toggles ───────────────────────────────────────────────────────
-  const [inclEntradas, setInclEntradas] = useState(true)
-  const [inclSalidas,  setInclSalidas]  = useState(true)
+  // ── Section toggles — all off by default so user chooses intentionally ───
+  const [inclEntradas, setInclEntradas] = useState(false)
+  const [inclSalidas,  setInclSalidas]  = useState(false)
   const [inclMermas,   setInclMermas]   = useState(false)
   const [inclStock,    setInclStock]    = useState(false)
   const [inclPedido,   setInclPedido]   = useState(false)
