@@ -7,7 +7,7 @@
  *   onClose()         — called when the user closes/cancels the scanner
  */
 import { useEffect, useRef } from 'react'
-import { Html5Qrcode, Html5QrcodeSupportedFormats } from 'html5-qrcode'
+import { Html5Qrcode } from 'html5-qrcode'
 
 interface Props {
   onDetected: (code: string) => void
@@ -21,13 +21,7 @@ export default function BarcodeScanner({ onDetected, onClose }: Props) {
   const detectedRef = useRef(false)
 
   useEffect(() => {
-    const scanner = new Html5Qrcode(SCANNER_ID, {
-      verbose: false,
-      formatsToSupport: [
-        Html5QrcodeSupportedFormats.EAN_13,
-        Html5QrcodeSupportedFormats.EAN_8,
-      ],
-    })
+    const scanner = new Html5Qrcode(SCANNER_ID, { verbose: false })
     scannerRef.current = scanner
 
     scanner.start(
@@ -35,6 +29,12 @@ export default function BarcodeScanner({ onDetected, onClose }: Props) {
       {
         fps: 10,
         qrbox: { width: 280, height: 160 },
+        formatsToSupport: [
+          // EAN-13 and EAN-8 (numeric codes for supermarket products)
+          // html5-qrcode uses Html5QrcodeSupportedFormats enum, but we
+          // pass raw ints: EAN_13=4, EAN_8=5
+          4, 5,
+        ] as never[],
       },
       (decodedText) => {
         if (detectedRef.current) return

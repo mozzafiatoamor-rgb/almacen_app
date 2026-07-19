@@ -34,8 +34,8 @@ function parseArea(val: string): Area {
   return VALID_AREAS.includes(trimmed) ? trimmed : 'General'
 }
 
-export async function fetchCatalogo(): Promise<Producto[]> {
-  const rows = await readRange(SHEET_NAMES.catalogo, 'A2:L500')
+export async function fetchCatalogo(includeInactive = false): Promise<Producto[]> {
+  const rows = await readRange(SHEET_NAMES.catalogo, 'A2:M500')
   return rows
     .map((r, i) => ({
       id:           r[0] ?? '',
@@ -50,9 +50,10 @@ export async function fetchCatalogo(): Promise<Producto[]> {
       codigoBarras: r[9] ?? '',
       precioRef:    parseFloat(r[10]) || 0,
       area:         parseArea(r[11]),
+      prioridad:    parseInt(r[12]) || 3,
       _row:         i + 2,
     }))
-    .filter(p => p.producto && p.activo !== 'NO')
+    .filter(p => p.producto && (includeInactive || p.activo !== 'NO'))
 }
 
 // ─── Movimientos ──────────────────────────────────────────────────────────────

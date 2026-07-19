@@ -1,5 +1,5 @@
 // ═══════════════════════════════════════════════════════════════════════════════
-//  Almacén Mozzafiato — Google Apps Script Backend v2.1
+//  Almacén Mozzafiato — Google Apps Script Backend v2.2
 //  Handles all write operations from the React frontend.
 //
 //  New in v2.1:
@@ -25,7 +25,7 @@ var SHEET = {
 // ─── Health check ─────────────────────────────────────────────────────────────
 
 function doGet(e) {
-  return respond(true, null, { status: 'ok', message: 'Almacén API v2.1 OK' });
+  return respond(true, null, { status: 'ok', message: 'Almacén API v2.3 OK' });
 }
 
 // ─── Main dispatcher ──────────────────────────────────────────────────────────
@@ -37,11 +37,12 @@ function doPost(e) {
     var ss     = SpreadsheetApp.getActiveSpreadsheet();
 
     switch (action) {
-      case 'append':    return handleAppend(ss, data);
-      case 'delete':    return handleDelete(ss, data);
-      case 'update':    return handleUpdate(ss, data);
-      case 'reconcile': return handleReconcile(ss);
-      default:          return respond(false, 'Acción no reconocida: ' + action);
+      case 'append':     return handleAppend(ss, data);
+      case 'delete':     return handleDelete(ss, data);
+      case 'update':     return handleUpdate(ss, data);
+      case 'reconcile':  return handleReconcile(ss);
+      case 'sendReport': return handleSendReport(ss, data);
+      default:           return respond(false, 'Acción no reconocida: ' + action);
     }
   } catch (err) {
     return respond(false, err.toString());
@@ -58,9 +59,9 @@ function handleAppend(ss, data) {
 
   // Side effect: update stock for movimientos
   if (data.sheet === SHEET.movimientos) {
-    var tipo      = data.values[3];
-    var producto  = data.values[5];
-    var cantidad  = Number(data.values[6]) || 0;
+    var tipo       = data.values[3];
+    var producto   = data.values[5];
+    var cantidad   = Number(data.values[6]) || 0;
     var precioUnit = data.values.length > 10 ? Number(data.values[10]) : 0;
 
     actualizarStock(ss, producto, tipo === 'Entrada' ? cantidad : -cantidad);
@@ -69,6 +70,7 @@ function handleAppend(ss, data) {
     if (tipo === 'Entrada' && precioUnit > 0) {
       actualizarPrecioRef(ss, producto, precioUnit);
     }
+    // areaDestino is already stored in col L (index 11) via appendRow — no extra action needed
   }
 
   // Side effect: update stock for mermas
@@ -150,6 +152,58 @@ function handleReconcile(ss) {
   }
 
   return respond(true, null, { updated: updated });
+}
+
+// ─── Send Report (employee → boss via WhatsApp) ───────────────────────────────
+
+/**
+ * Called when an employee taps "Enviar reporte" or "📢 Urgente" in the app.
+ * data.reportType: 'daily' | 'urgent'
+ * data.empleado:   employee name
+ * data.mensaje:    pre-formatted message body from the frontend
+ */
+function handleSendReport(ss, data) {
+  if (!REPORT_CONFIG.ENABLED) {
+    return respond(false, 'Reportes WhatsApp no están activados. Configura REPORT_APIKEY en Code.gs y pon ENABLED: true.');
+  }
+  if (!data.mensaje) return respond(false, 'Sin mensaje');
+
+  var result = enviarReporteWhatsApp(data.mensaje);
+  if (result) {
+    // Log to bitácora
+    var fecha = Utilities.formatDate(new Date(), Session.getScriptTimeZone(), 'dd/MM/yyyy');
+    var hora  = Utilities.formatDate(new Date(), Session.getScriptTimeZone(), 'HH:mm');
+    var tipo  = data.reportType === 'urgent' ? 'alerta' : 'reporte';
+    var bit   = ss.getSheetByName(SHEET.bitacora);
+    if (bit) {
+      bit.appendRow([fecha, hora, data.empleado || 'App', 'Reporte WhatsApp enviado', data.reportType || 'daily', tipo]);
+    }
+    return respond(true, null, { sent: true });
+  } else {
+    return respond(false, 'Error al enviar WhatsApp. Verifica REPORT_APIKEY.');
+  }
+}
+
+/**
+ * Sends a WhatsApp message to the boss via CallMeBot (report channel).
+ * Returns true on success, false on error.
+ */
+function enviarReporteWhatsApp(mensaje) {
+  if (!REPORT_CONFIG.REPORT_PHONE || !REPORT_CONFIG.REPORT_APIKEY) return false;
+  try {
+    var encoded = encodeURIComponent(mensaje);
+    var url = 'https://api.callmebot.com/whatsapp.php'
+      + '?phone='  + REPORT_CONFIG.REPORT_PHONE
+      + '&text='   + encoded
+      + '&apikey=' + REPORT_CONFIG.REPORT_APIKEY;
+    var response = UrlFetchApp.fetch(url, { muteHttpExceptions: true });
+    var code = response.getResponseCode();
+    Logger.log('CallMeBot report response: ' + code + ' — ' + response.getContentText().substring(0, 100));
+    return code === 200;
+  } catch (err) {
+    Logger.log('enviarReporteWhatsApp error: ' + err);
+    return false;
+  }
 }
 
 // ─── Stock helper ─────────────────────────────────────────────────────────────
@@ -248,6 +302,94 @@ function setupV21() {
 }
 
 // ═══════════════════════════════════════════════════════════════════════════════
+//  V2.2 SETUP — Run ONCE after deploying v2.2
+//  Adds 'area' column to Catálogo and 'areaDestino' column to Movimientos.
+//  Fills all existing products with 'General' as default area.
+// ═══════════════════════════════════════════════════════════════════════════════
+
+/**
+ * Run this function ONCE after deploying v2.2 to:
+ *  - Add column header for L (area) in Catálogo
+ *  - Fill existing products with 'General' (default area)
+ *  - Add column header for L (areaDestino) in Movimientos
+ */
+function setupV22() {
+  var ss = SpreadsheetApp.getActiveSpreadsheet();
+
+  // 1. Catálogo — add header L1 and default 'General' for existing rows
+  var cat = ss.getSheetByName(SHEET.catalogo);
+  if (cat) {
+    var l1 = cat.getRange('L1').getValue();
+    if (!l1) {
+      cat.getRange('L1').setValue('area');
+      cat.getRange('L1').setFontWeight('bold');
+    }
+
+    // Fill existing rows with 'General' where column L is empty
+    var lastRow = cat.getLastRow();
+    if (lastRow > 1) {
+      for (var i = 2; i <= lastRow; i++) {
+        var existing = cat.getRange(i, 12).getValue(); // col L = column 12
+        var producto  = cat.getRange(i, 3).getValue();  // col C = producto name
+        if (producto && !existing) {
+          cat.getRange(i, 12).setValue('General');
+        }
+      }
+    }
+    Logger.log('Catálogo: columna L (area) configurada');
+  }
+
+  // 2. Movimientos — add header L1
+  var mov = ss.getSheetByName(SHEET.movimientos);
+  if (mov) {
+    if (!mov.getRange('L1').getValue()) {
+      mov.getRange('L1').setValue('areaDestino');
+      mov.getRange('L1').setFontWeight('bold');
+    }
+    Logger.log('Movimientos: columna L (areaDestino) configurada');
+  }
+
+  Logger.log('setupV22 completado OK — todos los productos existentes quedan como General');
+}
+
+// ═══════════════════════════════════════════════════════════════════════════════
+//  V2.3 SETUP — Run ONCE after deploying v2.3
+//  Adds 'prioridad' column (M) to Catálogo. Default = 3 for existing products.
+// ═══════════════════════════════════════════════════════════════════════════════
+
+/**
+ * Run this function ONCE after deploying v2.3 to:
+ *  - Add column header M1 = 'prioridad' in Catálogo
+ *  - Fill existing products with 3 (medium priority) where column M is empty
+ */
+function setupV23() {
+  var ss  = SpreadsheetApp.getActiveSpreadsheet();
+  var cat = ss.getSheetByName(SHEET.catalogo);
+  if (!cat) { Logger.log('ERROR: No se encontró Catálogo'); return; }
+
+  // Add header M1
+  if (!cat.getRange('M1').getValue()) {
+    cat.getRange('M1').setValue('prioridad');
+    cat.getRange('M1').setFontWeight('bold');
+    Logger.log('Header M1 (prioridad) creado');
+  }
+
+  // Fill existing rows with default priority 3
+  var lastRow = cat.getLastRow();
+  var filled  = 0;
+  for (var i = 2; i <= lastRow; i++) {
+    var producto  = cat.getRange(i, 3).getValue();
+    var existing  = cat.getRange(i, 13).getValue(); // col M = column 13
+    if (producto && (existing === '' || existing === null || existing === undefined)) {
+      cat.getRange(i, 13).setValue(3);
+      filled++;
+    }
+  }
+
+  Logger.log('setupV23 completado OK — ' + filled + ' productos con prioridad 3 por defecto');
+}
+
+// ═══════════════════════════════════════════════════════════════════════════════
 //  NOTIFICATION TRIGGERS
 //  Set these up in Apps Script > Triggers as time-based functions.
 // ═══════════════════════════════════════════════════════════════════════════════
@@ -264,10 +406,21 @@ function setupV21() {
  */
 var CONFIG = {
   ADMIN_EMAIL:       'admin@mozzafiato.com',  // ← change this
-  CALLMEBOT_PHONE:   '',                       // ← e.g. '+521234567890'
-  CALLMEBOT_APIKEY:  '',                       // ← from callmebot.com
+  CALLMEBOT_PHONE:   '',                       // ← e.g. '+521234567890' (stock alerts)
+  CALLMEBOT_APIKEY:  '',                       // ← from callmebot.com  (stock alerts)
   SEND_WHATSAPP:     false,                    // ← set true when ready
   SEND_EMAIL:        true,
+};
+
+// ─── Report WhatsApp config (employee → boss) ─────────────────────────────────
+// This is a SEPARATE CallMeBot registration for receiving employee reports.
+// Register your personal number at https://www.callmebot.com/blog/free-api-whatsapp-messages/
+// then fill in REPORT_PHONE and REPORT_APIKEY below.
+
+var REPORT_CONFIG = {
+  REPORT_PHONE:    '+529832079693',  // ← your WhatsApp number with country code
+  REPORT_APIKEY:   '',               // ← API key from callmebot.com for this number
+  ENABLED:         false,            // ← set true once you have the API key
 };
 
 function checkStockBajo() {

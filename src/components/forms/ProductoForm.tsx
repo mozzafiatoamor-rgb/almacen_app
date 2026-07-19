@@ -91,6 +91,7 @@ export default function ProductoForm({ catalogo, editProd, onClose }: Props) {
   const [pzaPaq,        setPzaPaq]       = useState(String(editProd?.pzaPaq ?? 1))
   const [codigoBarras,  setCodigoBarras] = useState(editProd?.codigoBarras ?? '')
   const [area,          setArea]         = useState<Area>(editProd?.area ?? 'General')
+  const [prioridad,     setPrioridad]    = useState(editProd?.prioridad ?? 3)
   const [scanning,      setScanning]     = useState(false)
   const [showDropdown,  setShowDropdown] = useState(false)
   const [blocked,       setBlocked]      = useState(false) // true when user picked exact duplicate
@@ -168,6 +169,7 @@ export default function ProductoForm({ catalogo, editProd, onClose }: Props) {
       codigoBarras.trim(),
       editProd?.precioRef ?? 0,
       area,
+      prioridad,
     ]
 
     const label = nombre.trim()
@@ -352,6 +354,44 @@ export default function ProductoForm({ catalogo, editProd, onClose }: Props) {
           </div>
           <p className="text-[10px] text-text2 mt-1.5">
             ↔️ "Ambas" para productos que usan Barra y Cocina
+          </p>
+        </Field>
+
+        {/* Prioridad */}
+        <Field label="Prioridad de abastecimiento">
+          <div className="flex gap-1.5">
+            {[1, 2, 3, 4, 5].map(n => {
+              const colors: Record<number, string> = {
+                1: 'bg-slate-500/20 text-slate-400 border-slate-500/30',
+                2: 'bg-blue-500/20 text-blue-400 border-blue-500/30',
+                3: 'bg-yellow-400/20 text-yellow-400 border-yellow-400/30',
+                4: 'bg-orange-500/20 text-orange-400 border-orange-500/30',
+                5: 'bg-red/20 text-red border-red/30',
+              }
+              const activeColors: Record<number, string> = {
+                1: 'bg-slate-500 text-white border-slate-500',
+                2: 'bg-blue-500 text-white border-blue-500',
+                3: 'bg-yellow-400 text-bg border-yellow-400',
+                4: 'bg-orange-500 text-white border-orange-500',
+                5: 'bg-red text-white border-red',
+              }
+              const labels: Record<number, string> = { 1: 'Baja', 2: 'Normal', 3: 'Media', 4: 'Alta', 5: '🔴 Crítica' }
+              const isActive = prioridad === n
+              return (
+                <button
+                  key={n}
+                  type="button"
+                  onClick={() => setPrioridad(n)}
+                  className={`flex-1 flex flex-col items-center gap-0.5 py-2 rounded-xl text-xs font-bold transition-all border ${isActive ? activeColors[n] : colors[n]}`}
+                >
+                  <span className="text-base font-black">{n}</span>
+                  {n === 5 && <span className="text-[9px] font-semibold leading-none">Crítico</span>}
+                </button>
+              )
+            })}
+          </div>
+          <p className="text-[10px] text-text2 mt-1.5">
+            5 = producto crítico que nunca debe faltar · 1 = prescindible
           </p>
         </Field>
 

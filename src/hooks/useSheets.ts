@@ -86,7 +86,9 @@ export function useStockBajo(): StockBajo[] {
       proveedor:   p.proveedor,
       precioRef:   p.precioRef,
       area:        p.area,
+      prioridad:   p.prioridad,
     }))
+    .sort((a, b) => b.prioridad - a.prioridad)
 }
 
 export function useHomeStats() {

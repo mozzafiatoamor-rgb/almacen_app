@@ -17,6 +17,7 @@ export interface Producto {
   codigoBarras: string   // col J — EAN-13/EAN-8
   precioRef: number      // col K — last price paid per unit
   area: Area             // col L — which area uses this product
+  prioridad: number      // col M — 1 (low) to 5 (critical), default 3
   _row: number
 }
 
@@ -93,6 +94,7 @@ export interface StockBajo {
   proveedor: string
   precioRef: number      // for budget estimate
   area: Area             // for area filtering in ComprasPage
+  prioridad: number      // 1-5 — used for sorting and urgent alerts
 }
 
 // ─── App config stored in localStorage ────────────────────────────────────────

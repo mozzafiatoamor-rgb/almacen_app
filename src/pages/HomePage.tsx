@@ -1,6 +1,8 @@
-import { useMemo } from 'react'
+import { useMemo, useState } from 'react'
 import { useAuth } from '../auth/AuthContext'
-import { useHomeStats, useStockBajo, useMovimientos } from '../hooks/useSheets'
+import { useHomeStats, useStockBajo, useMovimientos, useMermas } from '../hooks/useSheets'
+import { useToast } from '../hooks/useToast'
+import { sendReport } from '../api/appscript'
 import StatBox from '../components/shared/StatBox'
 import { today } from '../utils/dates'
 import type { Tab } from '../api/types'
@@ -21,7 +23,55 @@ export default function HomePage({ onOpenModal, onSwitch }: Props) {
   const stats                          = useHomeStats()
   const stockBajo                      = useStockBajo()
   const { data: movimientos = [] }     = useMovimientos()
+  const { data: mermas = [] }          = useMermas()
+  const toast                          = useToast()
   const todayStr                       = today()
+  const [sendingReport, setSendingReport] = useState(false)
+
+  async function handleEnviarReporte() {
+    const nombre = user?.nombre ?? 'Empleado'
+    const fecha  = new Date().toLocaleDateString('es-MX', {
+      weekday: 'long', year: 'numeric', month: 'long', day: 'numeric',
+    })
+    const entHoyMov = movimientos.filter(m => m.fecha === todayStr && m.tipo === 'Entrada' && m.responsable === nombre)
+    const salHoyMov = movimientos.filter(m => m.fecha === todayStr && m.tipo === 'Salida'  && m.responsable === nombre)
+    const merHoyMov = mermas.filter(m => m.fecha === todayStr && m.responsable === nombre)
+
+    const lines: string[] = [
+      `📊 Reporte Diario — Mozzafiato`,
+      `👤 Empleado: ${nombre}`,
+      `📅 ${fecha}`,
+      ``,
+    ]
+    if (entHoyMov.length > 0) {
+      lines.push(`📥 Entradas (${entHoyMov.length}):`)
+      entHoyMov.forEach(m => lines.push(`  • ${m.producto} ×${m.cantidad}${m.motivo ? ` (${m.motivo})` : ''}`))
+      lines.push(``)
+    }
+    if (salHoyMov.length > 0) {
+      lines.push(`📤 Salidas (${salHoyMov.length}):`)
+      salHoyMov.forEach(m => lines.push(`  • ${m.producto} ×${m.cantidad} → ${m.areaDestino || 'Sin área'}`))
+      lines.push(``)
+    }
+    if (merHoyMov.length > 0) {
+      lines.push(`⚠️ Mermas (${merHoyMov.length}):`)
+      merHoyMov.forEach(m => lines.push(`  • ${m.producto} ×${m.cantidad}${m.motivo ? ` (${m.motivo})` : ''}`))
+      lines.push(``)
+    }
+    if (entHoyMov.length === 0 && salHoyMov.length === 0 && merHoyMov.length === 0) {
+      lines.push(`Sin movimientos registrados hoy.`)
+    }
+
+    setSendingReport(true)
+    try {
+      await sendReport({ reportType: 'daily', empleado: nombre, mensaje: lines.join('\n') })
+      toast('Reporte del día enviado ✅')
+    } catch {
+      toast('Error al enviar reporte', 'error')
+    } finally {
+      setSendingReport(false)
+    }
+  }
 
   // Salidas del día grouped by areaDestino
   const salHoyPorArea = useMemo(() => {
@@ -66,18 +116,20 @@ export default function HomePage({ onOpenModal, onSwitch }: Props) {
       {/* Quick actions */}
       <div className="grid grid-cols-2 gap-2.5 mb-4">
         {[
-          { icon: '📥', label: 'Entrada',        action: () => onOpenModal('entrada') },
-          { icon: '📤', label: 'Salida',          action: () => onOpenModal('salida')  },
-          { icon: '⚠️', label: 'Merma',           action: () => onOpenModal('merma')   },
-          { icon: '🛒', label: 'Lista Compras',   action: () => onSwitch('compras')    },
-          { icon: '🔄', label: 'Actualizar',      action: () => window.location.reload() },
+          { icon: '📥', label: 'Entrada',        action: () => onOpenModal('entrada'), loading: false },
+          { icon: '📤', label: 'Salida',          action: () => onOpenModal('salida'),  loading: false },
+          { icon: '⚠️', label: 'Merma',           action: () => onOpenModal('merma'),   loading: false },
+          { icon: '🛒', label: 'Lista Compras',   action: () => onSwitch('compras'),    loading: false },
+          { icon: '🔄', label: 'Actualizar',      action: () => window.location.reload(), loading: false },
+          { icon: '📊', label: sendingReport ? 'Enviando…' : 'Enviar Reporte', action: () => { void handleEnviarReporte() }, loading: sendingReport },
         ].map(q => (
           <button
             key={q.label}
             onClick={q.action}
-            className="flex flex-col items-center gap-1.5 py-4 px-2 bg-surface rounded-card border border-white/[0.04] hover:border-accent/30 transition-colors"
+            disabled={q.loading}
+            className="flex flex-col items-center gap-1.5 py-4 px-2 bg-surface rounded-card border border-white/[0.04] hover:border-accent/30 transition-colors disabled:opacity-50"
           >
-            <span className="text-2xl">{q.icon}</span>
+            <span className="text-2xl">{q.loading ? '⏳' : q.icon}</span>
             <span className="text-[11px] font-medium text-text1">{q.label}</span>
           </button>
         ))}
