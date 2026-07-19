@@ -26,16 +26,12 @@ export default function BarcodeScanner({ onDetected, onClose }: Props) {
 
     scanner.start(
       { facingMode: 'environment' },      // rear camera
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       {
         fps: 10,
         qrbox: { width: 280, height: 160 },
-        formatsToSupport: [
-          // EAN-13 and EAN-8 (numeric codes for supermarket products)
-          // html5-qrcode uses Html5QrcodeSupportedFormats enum, but we
-          // pass raw ints: EAN_13=4, EAN_8=5
-          4, 5,
-        ] as never[],
-      },
+        formatsToSupport: [4, 5],   // EAN_13=4, EAN_8=5
+      } as any,
       (decodedText) => {
         if (detectedRef.current) return
         detectedRef.current = true

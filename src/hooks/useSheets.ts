@@ -23,9 +23,9 @@ const STALE_BITACORA    = 5 * 60_000
 const STALE_GASTOS      = 2 * 60_000
 
 export function useCatalogo() {
-  return useQuery({
+  return useQuery<Producto[]>({
     queryKey:  ['catalogo'],
-    queryFn:   fetchCatalogo,
+    queryFn:   () => fetchCatalogo(),
     staleTime: STALE_CATALOGO,
   })
 }
