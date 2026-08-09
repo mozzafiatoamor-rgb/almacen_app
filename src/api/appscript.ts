@@ -98,6 +98,38 @@ export async function sendReport(payload: ReportPayload): Promise<void> {
   await post({ action: 'sendReport', ...payload })
 }
 
+// ─── Proveedores ──────────────────────────────────────────────────────────────
+
+export async function appendProveedor(values: (string | number)[]): Promise<void> {
+  await appendRow(SHEET_NAMES.proveedores, values)
+}
+
+export async function updateProveedor(row: number, values: (string | number)[]): Promise<void> {
+  await updateRow(SHEET_NAMES.proveedores, row, values)
+}
+
+// ─── Pedidos ──────────────────────────────────────────────────────────────────
+
+export async function appendPedido(values: (string | number)[]): Promise<void> {
+  await appendRow(SHEET_NAMES.pedidos, values)
+}
+
+/**
+ * Marks a pedido row as 'recibido' or 'cancelado'.
+ * Updates cols H (estado) and I (fechaRecibido) only — passes a full row snapshot.
+ */
+export async function updatePedidoEstado(
+  row: number,
+  fullRowValues: (string | number)[],
+  estado: 'recibido' | 'cancelado',
+  fechaRecibido: string
+): Promise<void> {
+  const updated = [...fullRowValues]
+  updated[7] = estado
+  updated[8] = fechaRecibido
+  await post({ action: 'update', sheet: SHEET_NAMES.pedidos, row, values: updated })
+}
+
 // ─── Stock reconciliation ─────────────────────────────────────────────────────
 
 export async function reconcileStock(): Promise<void> {

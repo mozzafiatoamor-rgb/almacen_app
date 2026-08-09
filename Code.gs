@@ -20,6 +20,8 @@ var SHEET = {
   usuarios:    '👤 Usuarios',
   bitacora:    '📜 Bitácora',
   gastos:      '💰 Gastos',
+  proveedores: '🏪 Proveedores',
+  pedidos:     '🛒 Pedidos',
 };
 
 // ─── Health check ─────────────────────────────────────────────────────────────
@@ -387,6 +389,61 @@ function setupV23() {
   }
 
   Logger.log('setupV23 completado OK — ' + filled + ' productos con prioridad 3 por defecto');
+}
+
+// ═══════════════════════════════════════════════════════════════════════════════
+//  V2.4 SETUP — Run ONCE after deploying v2.4
+//  Creates '🏪 Proveedores' and '🛒 Pedidos' sheets.
+// ═══════════════════════════════════════════════════════════════════════════════
+
+/**
+ * Run this function ONCE after deploying v2.4 to:
+ *  - Create '🏪 Proveedores' sheet with headers
+ *  - Create '🛒 Pedidos' sheet with headers
+ */
+function setupV24() {
+  var ss = SpreadsheetApp.getActiveSpreadsheet();
+
+  // 1. Proveedores sheet
+  var provSheet = ss.getSheetByName('🏪 Proveedores');
+  if (!provSheet) {
+    provSheet = ss.insertSheet('🏪 Proveedores');
+    provSheet.getRange('A1:E1').setValues([[
+      'id', 'nombre', 'telefono', 'contacto', 'notas'
+    ]]);
+    provSheet.setFrozenRows(1);
+    provSheet.getRange('A1:E1').setFontWeight('bold');
+    provSheet.setColumnWidth(1, 80);
+    provSheet.setColumnWidth(2, 180);
+    provSheet.setColumnWidth(3, 150);
+    provSheet.setColumnWidth(4, 150);
+    provSheet.setColumnWidth(5, 200);
+    Logger.log('Hoja Proveedores creada');
+  } else {
+    Logger.log('Hoja Proveedores ya existe');
+  }
+
+  // 2. Pedidos sheet
+  var pedSheet = ss.getSheetByName('🛒 Pedidos');
+  if (!pedSheet) {
+    pedSheet = ss.insertSheet('🛒 Pedidos');
+    pedSheet.getRange('A1:J1').setValues([[
+      'id', 'fecha', 'proveedor', 'producto', 'cantidad',
+      'unidad', 'precioRef', 'estado', 'fechaRecibido', 'responsable'
+    ]]);
+    pedSheet.setFrozenRows(1);
+    pedSheet.getRange('A1:J1').setFontWeight('bold');
+    pedSheet.setColumnWidth(1, 80);
+    pedSheet.setColumnWidth(2, 100);
+    pedSheet.setColumnWidth(3, 160);
+    pedSheet.setColumnWidth(4, 200);
+    pedSheet.setColumnWidth(8, 120);
+    Logger.log('Hoja Pedidos creada');
+  } else {
+    Logger.log('Hoja Pedidos ya existe');
+  }
+
+  Logger.log('setupV24 completado OK');
 }
 
 // ═══════════════════════════════════════════════════════════════════════════════

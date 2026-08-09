@@ -11,7 +11,7 @@
  *     - Confirm → saves all items as Entradas in one batch.
  */
 import { useState, useMemo, useEffect } from 'react'
-import { useStockBajo, useMovimientos, useInvalidate } from '../hooks/useSheets'
+import { useStockBajo, useMovimientos, useProveedores, useInvalidate } from '../hooks/useSheets'
 import { motion, AnimatePresence } from 'framer-motion'
 import SearchBar   from '../components/shared/SearchBar'
 import FilterPills from '../components/shared/FilterPills'
@@ -20,7 +20,7 @@ import AreaFilter, { AreaBadge } from '../components/shared/AreaFilter'
 import { today, nowDateTime } from '../utils/dates'
 import { useToast }   from '../hooks/useToast'
 import { useAuth }    from '../auth/AuthContext'
-import { appendMovimiento, appendBitacora, appendGasto } from '../api/appscript'
+import { appendMovimiento, appendBitacora, appendGasto, appendPedido } from '../api/appscript'
 import { nextId }     from '../utils/ids'
 import type { StockBajo, Movimiento, Area } from '../api/types'
 
@@ -64,11 +64,21 @@ function QtyInput({ value, onChange, min = 1 }: { value: number; onChange: (n: n
 // ─── Main page ────────────────────────────────────────────────────────────────
 
 export default function ComprasPage() {
-  const stockBajo                  = useStockBajo()
-  const { data: movimientos = [] } = useMovimientos()
-  const toast                      = useToast()
-  const { user }                   = useAuth()
-  const invalidate                 = useInvalidate()
+  const stockBajo                    = useStockBajo()
+  const { data: movimientos = [] }   = useMovimientos()
+  const { data: proveedores = [] }   = useProveedores()
+  const toast                        = useToast()
+  const { user }                     = useAuth()
+  const invalidate                   = useInvalidate()
+
+  // Build a quick lookup: proveedor name → telefono
+  const provTelMap = useMemo(() => {
+    const m: Record<string, string> = {}
+    proveedores.forEach(p => { if (p.nombre) m[p.nombre] = p.telefono })
+    return m
+  }, [proveedores])
+
+  const [sendingProv, setSendingProv] = useState<string | null>(null)
 
   const [query,        setQuery]       = useState('')
   const [provF,        setProvF]       = useState('todos')
@@ -88,7 +98,7 @@ export default function ComprasPage() {
   const [showSummary,  setShowSummary] = useState(false)
   const [saving,       setSaving]      = useState(false)
 
-  const proveedores = useMemo(
+  const provNames = useMemo(
     () => [...new Set(stockBajo.map(p => p.proveedor))].sort(),
     [stockBajo]
   )
@@ -296,6 +306,61 @@ export default function ComprasPage() {
     if (cartItems.some(c => c.precioRef > 0)) invalidate.gastos?.()
   }
 
+  // Send order to a specific proveedor via WhatsApp + save as pedido pendiente
+  async function sendToProveedor(prov: string) {
+    if (!user) return
+    const items = (byProv[prov] ?? []).filter(p => !!cart[p.producto] || true)
+    // Use cart items for this proveedor if any, else all listed items for this prov
+    const cartProvItems = cartItems.filter(c => c.proveedor === prov)
+    const sourceItems   = cartProvItems.length > 0 ? cartProvItems : byProv[prov] ?? []
+    if (sourceItems.length === 0) return
+
+    setSendingProv(prov)
+    const n = nowDateTime()
+
+    // Build WhatsApp message
+    const fecha = new Date().toLocaleDateString('es-MX', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })
+    let msg = `🛒 PEDIDO MOZZAFIATO\n📅 ${fecha}\n━━━━━━━━━━━━━━━\n\n`
+    sourceItems.forEach(item => {
+      const qty = 'qtyOrdered' in item ? (item as CartItem).qtyOrdered : getQty(item as StockBajo)
+      const est = (item as StockBajo).precioRef > 0 ? ` (~$${(qty * (item as StockBajo).precioRef).toFixed(2)})` : ''
+      msg += `▫ ${item.producto} × ${qty} ${item.unidad}${est}\n`
+    })
+    msg += `\n━━━━━━━━━━━━━━━\n📦 Total: ${sourceItems.length} producto${sourceItems.length !== 1 ? 's' : ''}`
+
+    // Save each item as a pedido pendiente in Sheets
+    try {
+      for (const item of sourceItems) {
+        const qty   = 'qtyOrdered' in item ? (item as CartItem).qtyOrdered : getQty(item as StockBajo)
+        const pRef  = (item as StockBajo).precioRef ?? 0
+        const unit  = (item as StockBajo).unidad ?? ''
+        const pedId = nextId('PD', [])
+        await appendPedido([pedId, n.date, prov, item.producto, qty, unit, pRef, 'pendiente', '', user.nombre])
+      }
+      toast(`📋 Pedido guardado — ${sourceItems.length} productos`)
+      await invalidate.pedidos()
+    } catch {
+      toast('Error guardando pedido', 'error')
+    }
+
+    // Open WhatsApp
+    const tel = provTelMap[prov]
+    if (tel) {
+      const num = tel.replace(/\D/g, '')
+      window.open(`https://wa.me/${num}?text=${encodeURIComponent(msg)}`, '_blank')
+    } else {
+      // No phone — copy to clipboard
+      try {
+        await navigator.clipboard.writeText(msg)
+        toast(`📋 Pedido copiado — agrega el número de ${prov} en Proveedores`)
+      } catch {
+        toast(`Sin número para ${prov} — guárdalo en la sección Proveedores`, 'error')
+      }
+    }
+
+    setSendingProv(null)
+  }
+
   return (
     <div className="px-4 py-4 pb-32">
       {/* Header */}
@@ -330,7 +395,7 @@ export default function ComprasPage() {
       )}
 
       <AreaFilter active={areaF} onChange={setAreaF} />
-      <FilterPills options={proveedores} active={provF} onSelect={setProvF} allLabel="Todos" />
+      <FilterPills options={provNames} active={provF} onSelect={setProvF} allLabel="Todos" />
       <SearchBar value={query} onChange={setQuery} placeholder="Buscar producto o proveedor…" />
 
       {provKeys.length === 0
@@ -338,11 +403,25 @@ export default function ComprasPage() {
         : provKeys.map(prov => (
             <div key={prov} className="bg-surface rounded-card border border-white/[0.04] mb-3 overflow-hidden">
               {/* Proveedor header */}
-              <div className="flex justify-between items-center px-4 py-3 border-b border-surface3">
-                <span className="text-sm font-bold">🏪 {prov}</span>
-                <span className="text-xs bg-accent/20 text-accent px-2 py-0.5 rounded-full font-semibold">
-                  {byProv[prov].length} items
-                </span>
+              <div className="flex justify-between items-center px-4 py-3 border-b border-surface3 gap-2">
+                <div className="flex items-center gap-2 flex-1 min-w-0">
+                  <span className="text-sm font-bold truncate">🏪 {prov}</span>
+                  <span className="text-xs bg-accent/20 text-accent px-2 py-0.5 rounded-full font-semibold flex-shrink-0">
+                    {byProv[prov].length} items
+                  </span>
+                  {provTelMap[prov] ? (
+                    <span className="text-[10px] text-green font-semibold">📲</span>
+                  ) : (
+                    <span className="text-[10px] text-text2">sin tel.</span>
+                  )}
+                </div>
+                <button
+                  onClick={() => sendToProveedor(prov)}
+                  disabled={sendingProv === prov}
+                  className="flex-shrink-0 text-xs font-semibold px-3 py-1.5 rounded-lg bg-green/10 text-green border border-green/20 disabled:opacity-40 active:opacity-70"
+                >
+                  {sendingProv === prov ? '…' : '📲 Pedir'}
+                </button>
               </div>
 
               {/* Products */}

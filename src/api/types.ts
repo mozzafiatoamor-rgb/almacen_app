@@ -130,6 +130,35 @@ export interface CartItemMerma {
   notas: string
 }
 
+// ─── Proveedores ──────────────────────────────────────────────────────────────
+
+export interface Proveedor {
+  id:       string
+  nombre:   string
+  telefono: string   // WhatsApp number, e.g. 529831234567
+  contacto: string   // contact person name
+  notas:    string
+  _row:     number
+}
+
+// ─── Pedidos ──────────────────────────────────────────────────────────────────
+
+export type EstadoPedido = 'pendiente' | 'recibido' | 'cancelado'
+
+export interface Pedido {
+  id:             string
+  fecha:          string
+  proveedor:      string
+  producto:       string
+  cantidad:       number
+  unidad:         string
+  precioRef:      number
+  estado:         EstadoPedido
+  fechaRecibido:  string
+  responsable:    string
+  _row:           number
+}
+
 // ─── Navigation ───────────────────────────────────────────────────────────────
 
 export type Tab =
@@ -137,6 +166,8 @@ export type Tab =
   | 'movimientos'
   | 'inventario'
   | 'compras'
+  | 'pedidos'
+  | 'proveedores'
   | 'mermas'
   | 'catalogo'
   | 'bitacora'

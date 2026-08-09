@@ -20,16 +20,18 @@ interface NavItem {
 }
 
 const NAV_ITEMS: NavItem[] = [
-  { tab: 'home',        icon: '🏠', label: 'Inicio'                          },
-  { tab: 'movimientos', icon: '📥', label: 'Mov.'                            },
-  { tab: 'inventario',  icon: '📦', label: 'Inventario'                      },
-  { tab: 'compras',     icon: '🛒', label: 'Compras',    restricted: true    },
-  { tab: 'mermas',      icon: '⚠️', label: 'Mermas',     restricted: true    },
-  { tab: 'catalogo',    icon: '📋', label: 'Catálogo',   restricted: true    },
-  { tab: 'reportes',    icon: '📊', label: 'Reportes',   restricted: true    },
-  { tab: 'gastos',      icon: '💰', label: 'Gastos',     restricted: true    },
-  { tab: 'bitacora',    icon: '📜', label: 'Bitácora',   restricted: true    },
-  { tab: 'usuarios',    icon: '👥', label: 'Usuarios',   admin: true         },
+  { tab: 'home',         icon: '🏠', label: 'Inicio'                          },
+  { tab: 'movimientos',  icon: '📥', label: 'Mov.'                            },
+  { tab: 'inventario',   icon: '📦', label: 'Inventario'                      },
+  { tab: 'compras',      icon: '🛒', label: 'Compras',    restricted: true    },
+  { tab: 'pedidos',      icon: '📋', label: 'Pedidos',    restricted: true    },
+  { tab: 'mermas',       icon: '⚠️', label: 'Mermas',     restricted: true    },
+  { tab: 'catalogo',     icon: '📂', label: 'Catálogo',   restricted: true    },
+  { tab: 'reportes',     icon: '📊', label: 'Reportes',   restricted: true    },
+  { tab: 'gastos',       icon: '💰', label: 'Gastos',     restricted: true    },
+  { tab: 'bitacora',     icon: '📜', label: 'Bitácora',   restricted: true    },
+  { tab: 'proveedores',  icon: '🏪', label: 'Proveedores', restricted: true   },
+  { tab: 'usuarios',     icon: '👥', label: 'Usuarios',   admin: true         },
 ]
 
 interface Props {

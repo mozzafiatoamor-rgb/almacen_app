@@ -20,13 +20,15 @@ import MermaForm      from './components/forms/MermaForm'
 import HomePage      from './pages/HomePage'
 import MovimientosPage from './pages/MovimientosPage'
 import InventarioPage  from './pages/InventarioPage'
-import ComprasPage     from './pages/ComprasPage'
-import MermasPage      from './pages/MermasPage'
-import CatalogoPage    from './pages/CatalogoPage'
-import BitacoraPage    from './pages/BitacoraPage'
-import ReportesPage    from './pages/ReportesPage'
-import GastosPage      from './pages/GastosPage'
-import UsuariosPage    from './pages/UsuariosPage'
+import ComprasPage      from './pages/ComprasPage'
+import PedidosPage      from './pages/PedidosPage'
+import MermasPage       from './pages/MermasPage'
+import CatalogoPage     from './pages/CatalogoPage'
+import BitacoraPage     from './pages/BitacoraPage'
+import ReportesPage     from './pages/ReportesPage'
+import GastosPage       from './pages/GastosPage'
+import UsuariosPage     from './pages/UsuariosPage'
+import ProveedoresPage  from './pages/ProveedoresPage'
 
 import { useCatalogo, useMovimientos, useMermas } from './hooks/useSheets'
 import { getConfig, isConfigured, saveConfig } from './api/config'
@@ -133,12 +135,14 @@ function MainApp() {
             {tab === 'movimientos' && <MovimientosPage onOpenEntrada={() => openModal('entrada')} onOpenSalida={() => openModal('salida')} />}
             {tab === 'inventario'  && <InventarioPage />}
             {tab === 'compras'     && <ComprasPage />}
+            {tab === 'pedidos'     && <PedidosPage />}
             {tab === 'mermas'      && <MermasPage onOpenMerma={() => openModal('merma')} />}
             {tab === 'catalogo'    && <CatalogoPage />}
             {tab === 'bitacora'    && <BitacoraPage />}
             {tab === 'reportes'    && <ReportesPage />}
             {tab === 'gastos'      && <GastosPage />}
             {tab === 'usuarios'    && <UsuariosPage />}
+            {tab === 'proveedores' && <ProveedoresPage />}
           </motion.div>
         </AnimatePresence>
       </main>

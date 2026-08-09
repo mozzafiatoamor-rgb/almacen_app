@@ -11,6 +11,9 @@ import type {
   Usuario,
   BitacoraEntry,
   Gasto,
+  Proveedor,
+  Pedido,
+  EstadoPedido,
   Area,
 } from './types'
 
@@ -137,6 +140,46 @@ export async function fetchGastos(): Promise<Gasto[]> {
       _row:        i + 2,
     }))
     .filter(g => g.producto)
+    .reverse()
+}
+
+// ─── Proveedores ──────────────────────────────────────────────────────────────
+
+export async function fetchProveedores(): Promise<Proveedor[]> {
+  const rows = await readRange(SHEET_NAMES.proveedores, 'A2:E200')
+  return rows
+    .map((r, i) => ({
+      id:       r[0] ?? '',
+      nombre:   r[1] ?? '',
+      telefono: r[2] ?? '',
+      contacto: r[3] ?? '',
+      notas:    r[4] ?? '',
+      _row:     i + 2,
+    }))
+    .filter(p => p.nombre)
+}
+
+// ─── Pedidos ──────────────────────────────────────────────────────────────────
+
+const VALID_ESTADOS: EstadoPedido[] = ['pendiente', 'recibido', 'cancelado']
+
+export async function fetchPedidos(): Promise<Pedido[]> {
+  const rows = await readRange(SHEET_NAMES.pedidos, 'A2:J2000')
+  return rows
+    .map((r, i) => ({
+      id:            r[0] ?? '',
+      fecha:         normDate(r[1] ?? ''),
+      proveedor:     r[2] ?? '',
+      producto:      r[3] ?? '',
+      cantidad:      parseInt(r[4]) || 0,
+      unidad:        r[5] ?? '',
+      precioRef:     parseFloat(r[6]) || 0,
+      estado:        (VALID_ESTADOS.includes(r[7] as EstadoPedido) ? r[7] : 'pendiente') as EstadoPedido,
+      fechaRecibido: normDate(r[8] ?? ''),
+      responsable:   r[9] ?? '',
+      _row:          i + 2,
+    }))
+    .filter(p => p.producto)
     .reverse()
 }
 

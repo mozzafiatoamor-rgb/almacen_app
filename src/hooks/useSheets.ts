@@ -10,17 +10,21 @@ import {
   fetchUsuarios,
   fetchBitacora,
   fetchGastos,
+  fetchProveedores,
+  fetchPedidos,
 } from '../api/sheets'
 import { today } from '../utils/dates'
-import type { StockBajo, Producto } from '../api/types'
+import type { StockBajo, Producto, Proveedor, Pedido } from '../api/types'
 
 // Stale times
-const STALE_CATALOGO    = 5 * 60_000   // 5 min  (changes infrequently)
-const STALE_MOVIMIENTOS = 2 * 60_000   // 2 min
-const STALE_MERMAS      = 2 * 60_000
-const STALE_USUARIOS    = 10 * 60_000  // 10 min
-const STALE_BITACORA    = 5 * 60_000
-const STALE_GASTOS      = 2 * 60_000
+const STALE_CATALOGO     = 5 * 60_000   // 5 min  (changes infrequently)
+const STALE_MOVIMIENTOS  = 2 * 60_000   // 2 min
+const STALE_MERMAS       = 2 * 60_000
+const STALE_USUARIOS     = 10 * 60_000  // 10 min
+const STALE_BITACORA     = 5 * 60_000
+const STALE_GASTOS       = 2 * 60_000
+const STALE_PROVEEDORES  = 10 * 60_000  // 10 min (changes rarely)
+const STALE_PEDIDOS      = 2 * 60_000
 
 export function useCatalogo() {
   return useQuery<Producto[]>({
@@ -67,6 +71,22 @@ export function useGastos() {
     queryKey:  ['gastos'],
     queryFn:   fetchGastos,
     staleTime: STALE_GASTOS,
+  })
+}
+
+export function useProveedores() {
+  return useQuery<Proveedor[]>({
+    queryKey:  ['proveedores'],
+    queryFn:   fetchProveedores,
+    staleTime: STALE_PROVEEDORES,
+  })
+}
+
+export function usePedidos() {
+  return useQuery<Pedido[]>({
+    queryKey:  ['pedidos'],
+    queryFn:   fetchPedidos,
+    staleTime: STALE_PEDIDOS,
   })
 }
 
@@ -132,6 +152,8 @@ export function useInvalidate() {
     usuarios:    () => qc.invalidateQueries({ queryKey: ['usuarios'] }),
     bitacora:    () => qc.invalidateQueries({ queryKey: ['bitacora'] }),
     gastos:      () => qc.invalidateQueries({ queryKey: ['gastos'] }),
+    proveedores: () => qc.invalidateQueries({ queryKey: ['proveedores'] }),
+    pedidos:     () => qc.invalidateQueries({ queryKey: ['pedidos'] }),
     all:         () => qc.invalidateQueries(),
   }
 }
