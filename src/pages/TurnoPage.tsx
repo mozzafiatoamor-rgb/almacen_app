@@ -29,8 +29,9 @@ const TURNO_ICON: Record<TipoTurno, string> = { mañana: '🌅', tarde: '☀️'
 
 // ── LocalStorage helpers ───────────────────────────────────────────────────────
 
-const LS_TURNO    = 'mz_turno_activo'
-const LS_SELECCION = 'mz_conteo_seleccion'  // Set<string> of product names
+const LS_TURNO       = 'mz_turno_activo'
+const LS_SELECCION   = 'mz_conteo_seleccion'   // JSON array of product names
+const LS_CONFIGURADO = 'mz_conteo_configurado'  // flag: user has explicitly configured
 
 function loadActiveTurno(): { id: string; turnoRow: number; turno: TipoTurno } | null {
   try { const s = localStorage.getItem(LS_TURNO); return s ? JSON.parse(s) : null } catch { return null }
@@ -38,11 +39,20 @@ function loadActiveTurno(): { id: string; turnoRow: number; turno: TipoTurno } |
 function saveActiveTurno(v: { id: string; turnoRow: number; turno: TipoTurno } | null) {
   try { v ? localStorage.setItem(LS_TURNO, JSON.stringify(v)) : localStorage.removeItem(LS_TURNO) } catch {}
 }
-function loadSeleccion(): Set<string> {
-  try { const s = localStorage.getItem(LS_SELECCION); return s ? new Set(JSON.parse(s)) : new Set() } catch { return new Set() }
+// null = not configured (show all by default)
+// Set  = explicit selection (can be empty = none)
+function loadSeleccion(): Set<string> | null {
+  try {
+    if (!localStorage.getItem(LS_CONFIGURADO)) return null
+    const s = localStorage.getItem(LS_SELECCION)
+    return s ? new Set(JSON.parse(s)) : new Set()
+  } catch { return null }
 }
 function saveSeleccion(sel: Set<string>) {
-  try { localStorage.setItem(LS_SELECCION, JSON.stringify([...sel])) } catch {}
+  try {
+    localStorage.setItem(LS_CONFIGURADO, '1')
+    localStorage.setItem(LS_SELECCION, JSON.stringify([...sel]))
+  } catch {}
 }
 
 type Phase = 'idle' | 'inicial' | 'activo' | 'cierre' | 'resumen'
@@ -63,22 +73,22 @@ export default function TurnoPage() {
   const [activeTurno, setActiveTurnoState] = useState(loadActiveTurno)
   const { data: items = [] } = useConteoItems(activeTurno?.id)
 
-  // Which products are selected for this conteo
-  const [seleccion, setSeleccionState] = useState<Set<string>>(() => {
-    const saved = loadSeleccion()
-    return saved.size > 0 ? saved : new Set() // empty = will default to all on first run
-  })
+  // null = not configured (default all), Set = explicit selection
+  const [seleccion, setSeleccionState] = useState<Set<string> | null>(loadSeleccion)
 
-  // Effective list: selected products, or all if nothing selected yet
+  // Effective list: null = all, empty Set = none, otherwise filtered
   const productosConteo = useMemo(() => {
-    if (seleccion.size === 0) return barraProductos
+    if (seleccion === null) return barraProductos
+    if (seleccion.size === 0) return []
     return barraProductos.filter(p => seleccion.has(p.producto))
   }, [barraProductos, seleccion])
 
   function toggleSeleccion(nombre: string) {
     setSeleccionState(prev => {
-      // Start from all if empty
-      const base = prev.size === 0 ? new Set(barraProductos.map(p => p.producto)) : new Set(prev)
+      // If null (all by default), expand to explicit set of all, then toggle
+      const base = prev === null
+        ? new Set(barraProductos.map(p => p.producto))
+        : new Set(prev)
       base.has(nombre) ? base.delete(nombre) : base.add(nombre)
       saveSeleccion(base)
       return base
@@ -97,7 +107,8 @@ export default function TurnoPage() {
   const [phase,      setPhase]      = useState<Phase>(activeTurno ? 'activo' : 'idle')
   const [selTurno,   setSelTurno]   = useState<TipoTurno>('mañana')
   const [saving,     setSaving]     = useState(false)
-  const [showConfig, setShowConfig] = useState(false)
+  const [showConfig,  setShowConfig]  = useState(false)
+  const [catFiltro,   setCatFiltro]   = useState('Todas')
 
   // Conteo inicial qty
   const [inicialQty, setInicialQty] = useState<Record<string, number>>({})
@@ -259,40 +270,82 @@ export default function TurnoPage() {
       </div>
 
       {/* Config: select which barra products to count */}
-      {showConfig && canManage && (
-        <div className="bg-surface rounded-card border border-white/[0.04] p-4 mb-4">
-          <div className="flex justify-between items-center mb-3">
-            <p className="text-xs font-bold text-text2">PRODUCTOS A CONTAR (Barra)</p>
-            <div className="flex gap-2">
-              <button onClick={selectAll}  className="text-xs text-accent font-semibold">Todos</button>
-              <span className="text-text2 text-xs">·</span>
-              <button onClick={selectNone} className="text-xs text-text2 font-semibold">Ninguno</button>
+      {showConfig && canManage && (() => {
+        const cats = ['Todas', ...[...new Set(barraProductos.map(p => p.categoria))].sort()]
+        const visibles = catFiltro === 'Todas' ? barraProductos : barraProductos.filter(p => p.categoria === catFiltro)
+        const allVisChecked = visibles.every(p => seleccion === null || seleccion.has(p.producto))
+        return (
+          <div className="bg-surface rounded-card border border-white/[0.04] p-4 mb-4">
+            <div className="flex justify-between items-center mb-3">
+              <p className="text-xs font-bold text-text2">PRODUCTOS A CONTAR (Barra)</p>
+              <div className="flex gap-2 items-center">
+                <button onClick={selectAll}  className="text-xs text-accent font-semibold">Todos</button>
+                <span className="text-text2 text-xs">·</span>
+                <button onClick={selectNone} className="text-xs text-red font-semibold">Ninguno</button>
+              </div>
             </div>
-          </div>
-          {barraProductos.length === 0 ? (
-            <p className="text-xs text-text2">No hay productos con área Barra o Ambas en el catálogo.</p>
-          ) : (
-            <div className="space-y-1">
-              {barraProductos.map(p => {
-                const checked = seleccion.size === 0 || seleccion.has(p.producto)
-                return (
-                  <button key={p.producto} onClick={() => toggleSeleccion(p.producto)}
-                    className="w-full flex items-center gap-3 py-2 border-b border-surface3/50 last:border-0 text-left">
-                    <div className={`w-5 h-5 rounded border-2 flex items-center justify-center flex-shrink-0 transition-colors ${checked ? 'bg-accent border-accent' : 'border-white/20'}`}>
-                      {checked && <span className="text-white text-xs font-bold">✓</span>}
-                    </div>
-                    <span className="text-sm text-text1 flex-1">{p.producto}</span>
-                    <span className="text-xs text-text2">{p.unidad}</span>
+
+            {/* Category filter pills */}
+            {cats.length > 2 && (
+              <div className="flex gap-1.5 overflow-x-auto pb-2 mb-2" style={{ scrollbarWidth: 'none' }}>
+                {cats.map(cat => (
+                  <button key={cat} onClick={() => setCatFiltro(cat)}
+                    className={`flex-shrink-0 text-xs font-semibold px-3 py-1 rounded-full border transition-colors ${catFiltro === cat ? 'bg-accent text-white border-accent' : 'bg-surface2 text-text2 border-surface3'}`}>
+                    {cat}
                   </button>
-                )
-              })}
-            </div>
-          )}
-          <p className="text-[10px] text-text2 mt-3">
-            {productosConteo.length} de {barraProductos.length} productos seleccionados · La selección se guarda automáticamente
-          </p>
-        </div>
-      )}
+                ))}
+              </div>
+            )}
+
+            {/* Select/deselect visible */}
+            {catFiltro !== 'Todas' && (
+              <div className="flex gap-2 mb-2">
+                <button onClick={() => {
+                  setSeleccionState(prev => {
+                    const base = prev === null ? new Set(barraProductos.map(p => p.producto)) : new Set(prev)
+                    visibles.forEach(p => base.add(p.producto))
+                    saveSeleccion(base); return base
+                  })
+                }} className="text-xs text-accent font-semibold">+ Todos ({catFiltro})</button>
+                <span className="text-text2 text-xs">·</span>
+                <button onClick={() => {
+                  setSeleccionState(prev => {
+                    const base = prev === null ? new Set(barraProductos.map(p => p.producto)) : new Set(prev)
+                    visibles.forEach(p => base.delete(p.producto))
+                    saveSeleccion(base); return base
+                  })
+                }} className="text-xs text-red font-semibold">− Quitar ({catFiltro})</button>
+              </div>
+            )}
+
+            {barraProductos.length === 0 ? (
+              <p className="text-xs text-text2">No hay productos con área Barra o Ambas en el catálogo.</p>
+            ) : (
+              <div className="space-y-1 max-h-64 overflow-y-auto">
+                {visibles.map(p => {
+                  const checked = seleccion === null || seleccion.has(p.producto)
+                  return (
+                    <button key={p.producto} onClick={() => toggleSeleccion(p.producto)}
+                      className="w-full flex items-center gap-3 py-2 border-b border-surface3/50 last:border-0 text-left">
+                      <div className={`w-5 h-5 rounded border-2 flex items-center justify-center flex-shrink-0 transition-colors ${checked ? 'bg-accent border-accent' : 'border-white/20'}`}>
+                        {checked && <span className="text-white text-xs font-bold">✓</span>}
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <div className="text-sm text-text1 truncate">{p.producto}</div>
+                        <div className="text-[10px] text-text2">{p.categoria}</div>
+                      </div>
+                      <span className="text-xs text-text2 flex-shrink-0">{p.unidad}</span>
+                    </button>
+                  )
+                })}
+              </div>
+            )}
+            <p className="text-[10px] text-text2 mt-3">
+              {productosConteo.length} de {barraProductos.length} seleccionados · Se guarda automáticamente
+            </p>
+          </div>
+        )
+      })()}
 
       {/* ── IDLE ─────────────────────────────────────────────────────────── */}
       {phase === 'idle' && (
