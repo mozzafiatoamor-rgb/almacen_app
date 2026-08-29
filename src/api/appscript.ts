@@ -130,6 +130,32 @@ export async function updatePedidoEstado(
   await post({ action: 'update', sheet: SHEET_NAMES.pedidos, row, values: updated })
 }
 
+// ─── Turno ────────────────────────────────────────────────────────────────────
+
+export async function appendProductoConteo(values: (string | number)[]): Promise<void> {
+  await appendRow(SHEET_NAMES.productosConteo, values)
+}
+
+export async function updateProductoConteo(row: number, values: (string | number)[]): Promise<void> {
+  await updateRow(SHEET_NAMES.productosConteo, row, values)
+}
+
+export async function appendTurno(values: (string | number)[]): Promise<void> {
+  await appendRow(SHEET_NAMES.turnos, values)
+}
+
+export async function updateTurno(row: number, values: (string | number)[]): Promise<void> {
+  await updateRow(SHEET_NAMES.turnos, row, values)
+}
+
+export async function appendConteoItem(values: (string | number)[]): Promise<void> {
+  await appendRow(SHEET_NAMES.conteoItems, values)
+}
+
+export async function updateConteoItem(row: number, values: (string | number)[]): Promise<void> {
+  await updateRow(SHEET_NAMES.conteoItems, row, values)
+}
+
 // ─── Stock reconciliation ─────────────────────────────────────────────────────
 
 export async function reconcileStock(): Promise<void> {

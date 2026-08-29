@@ -31,6 +31,9 @@ export const SHEET_NAMES = {
   usuarios:    '👤 Usuarios',
   bitacora:    '📜 Bitácora',
   gastos:      '💰 Gastos',
-  proveedores: '🏪 Proveedores',
-  pedidos:     '🛒 Pedidos',
+  proveedores:     '🏪 Proveedores',
+  pedidos:         '🛒 Pedidos',
+  productosConteo: '📋 ProductosConteo',
+  turnos:          '🍸 Turnos',
+  conteoItems:     '📊 ConteoItems',
 } as const

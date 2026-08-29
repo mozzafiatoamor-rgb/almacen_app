@@ -12,9 +12,12 @@ import {
   fetchGastos,
   fetchProveedores,
   fetchPedidos,
+  fetchProductosConteo,
+  fetchTurnos,
+  fetchConteoItems,
 } from '../api/sheets'
 import { today } from '../utils/dates'
-import type { StockBajo, Producto, Proveedor, Pedido } from '../api/types'
+import type { StockBajo, Producto, Proveedor, Pedido, ProductoConteo, Turno, ConteoItem } from '../api/types'
 
 // Stale times
 const STALE_CATALOGO     = 5 * 60_000   // 5 min  (changes infrequently)
@@ -23,8 +26,11 @@ const STALE_MERMAS       = 2 * 60_000
 const STALE_USUARIOS     = 10 * 60_000  // 10 min
 const STALE_BITACORA     = 5 * 60_000
 const STALE_GASTOS       = 2 * 60_000
-const STALE_PROVEEDORES  = 10 * 60_000  // 10 min (changes rarely)
-const STALE_PEDIDOS      = 2 * 60_000
+const STALE_PROVEEDORES      = 10 * 60_000
+const STALE_PEDIDOS          = 2 * 60_000
+const STALE_PRODUCTOS_CONTEO = 10 * 60_000
+const STALE_TURNOS           = 1 * 60_000
+const STALE_CONTEO_ITEMS     = 30_000  // 30 s — changes fast during shift
 
 export function useCatalogo() {
   return useQuery<Producto[]>({
@@ -90,6 +96,31 @@ export function usePedidos() {
   })
 }
 
+export function useProductosConteo() {
+  return useQuery<ProductoConteo[]>({
+    queryKey:  ['productosConteo'],
+    queryFn:   fetchProductosConteo,
+    staleTime: STALE_PRODUCTOS_CONTEO,
+  })
+}
+
+export function useTurnos() {
+  return useQuery<Turno[]>({
+    queryKey:  ['turnos'],
+    queryFn:   fetchTurnos,
+    staleTime: STALE_TURNOS,
+  })
+}
+
+export function useConteoItems(turnoId?: string) {
+  return useQuery<ConteoItem[]>({
+    queryKey:  ['conteoItems', turnoId],
+    queryFn:   () => fetchConteoItems(turnoId),
+    staleTime: STALE_CONTEO_ITEMS,
+    enabled:   !!turnoId,
+  })
+}
+
 // ─── Derived data ─────────────────────────────────────────────────────────────
 
 export function useStockBajo(): StockBajo[] {
@@ -152,9 +183,12 @@ export function useInvalidate() {
     usuarios:    () => qc.invalidateQueries({ queryKey: ['usuarios'] }),
     bitacora:    () => qc.invalidateQueries({ queryKey: ['bitacora'] }),
     gastos:      () => qc.invalidateQueries({ queryKey: ['gastos'] }),
-    proveedores: () => qc.invalidateQueries({ queryKey: ['proveedores'] }),
-    pedidos:     () => qc.invalidateQueries({ queryKey: ['pedidos'] }),
-    all:         () => qc.invalidateQueries(),
+    proveedores:     () => qc.invalidateQueries({ queryKey: ['proveedores'] }),
+    pedidos:         () => qc.invalidateQueries({ queryKey: ['pedidos'] }),
+    productosConteo: () => qc.invalidateQueries({ queryKey: ['productosConteo'] }),
+    turnos:          () => qc.invalidateQueries({ queryKey: ['turnos'] }),
+    conteoItems:     () => qc.invalidateQueries({ queryKey: ['conteoItems'] }),
+    all:             () => qc.invalidateQueries(),
   }
 }
 

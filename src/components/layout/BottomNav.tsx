@@ -25,6 +25,7 @@ const NAV_ITEMS: NavItem[] = [
   { tab: 'inventario',   icon: '📦', label: 'Inventario'                      },
   { tab: 'compras',      icon: '🛒', label: 'Compras',    restricted: true    },
   { tab: 'pedidos',      icon: '📋', label: 'Pedidos',    restricted: true    },
+  { tab: 'turno',        icon: '🍸', label: 'Turno'                           },
   { tab: 'mermas',       icon: '⚠️', label: 'Mermas',     restricted: true    },
   { tab: 'catalogo',     icon: '📂', label: 'Catálogo',   restricted: true    },
   { tab: 'reportes',     icon: '📊', label: 'Reportes',   restricted: true    },

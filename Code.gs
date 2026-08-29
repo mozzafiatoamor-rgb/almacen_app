@@ -14,14 +14,17 @@
 // ═══════════════════════════════════════════════════════════════════════════════
 
 var SHEET = {
-  catalogo:    '📦 Catálogo',
-  movimientos: '📥 Movimientos',
-  mermas:      '⚠️ Mermas',
-  usuarios:    '👤 Usuarios',
-  bitacora:    '📜 Bitácora',
-  gastos:      '💰 Gastos',
-  proveedores: '🏪 Proveedores',
-  pedidos:     '🛒 Pedidos',
+  catalogo:        '📦 Catálogo',
+  movimientos:     '📥 Movimientos',
+  mermas:          '⚠️ Mermas',
+  usuarios:        '👤 Usuarios',
+  bitacora:        '📜 Bitácora',
+  gastos:          '💰 Gastos',
+  proveedores:     '🏪 Proveedores',
+  pedidos:         '🛒 Pedidos',
+  productosConteo: '📋 ProductosConteo',
+  turnos:          '🍸 Turnos',
+  conteoItems:     '📊 ConteoItems',
 };
 
 // ─── Health check ─────────────────────────────────────────────────────────────
@@ -444,6 +447,56 @@ function setupV24() {
   }
 
   Logger.log('setupV24 completado OK');
+}
+
+// ═══════════════════════════════════════════════════════════════════════════════
+//  V2.5 SETUP — Run ONCE after deploying v2.5
+//  Creates ProductosConteo, Turnos, ConteoItems sheets.
+// ═══════════════════════════════════════════════════════════════════════════════
+
+function setupV25() {
+  var ss = SpreadsheetApp.getActiveSpreadsheet();
+
+  // 1. ProductosConteo
+  var pcSheet = ss.getSheetByName(SHEET.productosConteo);
+  if (!pcSheet) {
+    pcSheet = ss.insertSheet(SHEET.productosConteo);
+    pcSheet.getRange('A1:D1').setValues([['id','nombre','unidad','activo']]);
+    pcSheet.setFrozenRows(1);
+    pcSheet.getRange('A1:D1').setFontWeight('bold');
+    // Seed with common bar items
+    var defaults = [
+      ['PC001','Refresco Cola 355ml','pieza','SI'],
+      ['PC002','Refresco Cola 600ml','pieza','SI'],
+      ['PC003','Agua Mineral 500ml','pieza','SI'],
+      ['PC004','Agua Natural 500ml','pieza','SI'],
+      ['PC005','Leche entera 1L','litro','SI'],
+    ];
+    pcSheet.getRange(2, 1, defaults.length, 4).setValues(defaults);
+    Logger.log('ProductosConteo creada con ejemplos');
+  }
+
+  // 2. Turnos
+  var tSheet = ss.getSheetByName(SHEET.turnos);
+  if (!tSheet) {
+    tSheet = ss.insertSheet(SHEET.turnos);
+    tSheet.getRange('A1:H1').setValues([['id','fecha','turno','responsable','horaInicio','horaFin','estado','notas']]);
+    tSheet.setFrozenRows(1);
+    tSheet.getRange('A1:H1').setFontWeight('bold');
+    Logger.log('Turnos creada');
+  }
+
+  // 3. ConteoItems
+  var ciSheet = ss.getSheetByName(SHEET.conteoItems);
+  if (!ciSheet) {
+    ciSheet = ss.insertSheet(SHEET.conteoItems);
+    ciSheet.getRange('A1:H1').setValues([['id','turnoId','fase','producto','unidad','cantidad','hora','justificacion']]);
+    ciSheet.setFrozenRows(1);
+    ciSheet.getRange('A1:H1').setFontWeight('bold');
+    Logger.log('ConteoItems creada');
+  }
+
+  Logger.log('setupV25 completado OK');
 }
 
 // ═══════════════════════════════════════════════════════════════════════════════

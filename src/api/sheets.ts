@@ -14,6 +14,12 @@ import type {
   Proveedor,
   Pedido,
   EstadoPedido,
+  ProductoConteo,
+  Turno,
+  EstadoTurno,
+  TipoTurno,
+  FaseConteo,
+  ConteoItem,
   Area,
 } from './types'
 
@@ -181,6 +187,60 @@ export async function fetchPedidos(): Promise<Pedido[]> {
     }))
     .filter(p => p.producto)
     .reverse()
+}
+
+// ─── ProductosConteo ──────────────────────────────────────────────────────────
+
+export async function fetchProductosConteo(): Promise<ProductoConteo[]> {
+  const rows = await readRange(SHEET_NAMES.productosConteo, 'A2:D200')
+  return rows
+    .map((r, i) => ({
+      id:     r[0] ?? '',
+      nombre: r[1] ?? '',
+      unidad: r[2] ?? '',
+      activo: (r[3] ?? 'SI').toString().trim().toUpperCase(),
+      _row:   i + 2,
+    }))
+    .filter(p => p.nombre && p.activo !== 'NO')
+}
+
+// ─── Turnos ───────────────────────────────────────────────────────────────────
+
+export async function fetchTurnos(): Promise<Turno[]> {
+  const rows = await readRange(SHEET_NAMES.turnos, 'A2:H500')
+  return rows
+    .map((r, i) => ({
+      id:          r[0] ?? '',
+      fecha:       normDate(r[1] ?? ''),
+      turno:       (r[2] ?? 'mañana') as TipoTurno,
+      responsable: r[3] ?? '',
+      horaInicio:  r[4] ?? '',
+      horaFin:     r[5] ?? '',
+      estado:      (r[6] ?? 'abierto') as EstadoTurno,
+      notas:       r[7] ?? '',
+      _row:        i + 2,
+    }))
+    .filter(t => t.id)
+    .reverse()
+}
+
+// ─── ConteoItems ──────────────────────────────────────────────────────────────
+
+export async function fetchConteoItems(turnoId?: string): Promise<ConteoItem[]> {
+  const rows = await readRange(SHEET_NAMES.conteoItems, 'A2:I3000')
+  return rows
+    .map((r, i) => ({
+      id:            r[0] ?? '',
+      turnoId:       r[1] ?? '',
+      fase:          (r[2] ?? 'inicial') as FaseConteo,
+      producto:      r[3] ?? '',
+      unidad:        r[4] ?? '',
+      cantidad:      parseFloat(r[5]) || 0,
+      hora:          r[6] ?? '',
+      justificacion: r[7] ?? '',
+      _row:          i + 2,
+    }))
+    .filter(c => c.producto && (!turnoId || c.turnoId === turnoId))
 }
 
 // ─── Bitácora ─────────────────────────────────────────────────────────────────
