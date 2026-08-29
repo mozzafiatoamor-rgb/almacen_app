@@ -14,7 +14,6 @@ import type {
   Proveedor,
   Pedido,
   EstadoPedido,
-  ProductoConteo,
   Turno,
   EstadoTurno,
   TipoTurno,
@@ -187,21 +186,6 @@ export async function fetchPedidos(): Promise<Pedido[]> {
     }))
     .filter(p => p.producto)
     .reverse()
-}
-
-// ─── ProductosConteo ──────────────────────────────────────────────────────────
-
-export async function fetchProductosConteo(): Promise<ProductoConteo[]> {
-  const rows = await readRange(SHEET_NAMES.productosConteo, 'A2:D200')
-  return rows
-    .map((r, i) => ({
-      id:     r[0] ?? '',
-      nombre: r[1] ?? '',
-      unidad: r[2] ?? '',
-      activo: (r[3] ?? 'SI').toString().trim().toUpperCase(),
-      _row:   i + 2,
-    }))
-    .filter(p => p.nombre && p.activo !== 'NO')
 }
 
 // ─── Turnos ───────────────────────────────────────────────────────────────────

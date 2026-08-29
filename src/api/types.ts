@@ -132,15 +132,6 @@ export interface CartItemMerma {
 
 // ─── Control de turno ─────────────────────────────────────────────────────────
 
-/** Producto configurado para conteo en turno */
-export interface ProductoConteo {
-  id:     string
-  nombre: string
-  unidad: string
-  activo: string
-  _row:   number
-}
-
 export type EstadoTurno = 'abierto' | 'cerrado'
 export type TipoTurno   = 'mañana' | 'tarde' | 'noche'
 export type FaseConteo  = 'inicial' | 'venta' | 'final'

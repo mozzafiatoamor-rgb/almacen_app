@@ -132,14 +132,6 @@ export async function updatePedidoEstado(
 
 // ─── Turno ────────────────────────────────────────────────────────────────────
 
-export async function appendProductoConteo(values: (string | number)[]): Promise<void> {
-  await appendRow(SHEET_NAMES.productosConteo, values)
-}
-
-export async function updateProductoConteo(row: number, values: (string | number)[]): Promise<void> {
-  await updateRow(SHEET_NAMES.productosConteo, row, values)
-}
-
 export async function appendTurno(values: (string | number)[]): Promise<void> {
   await appendRow(SHEET_NAMES.turnos, values)
 }

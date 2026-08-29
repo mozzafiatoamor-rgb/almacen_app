@@ -22,7 +22,6 @@ var SHEET = {
   gastos:          '💰 Gastos',
   proveedores:     '🏪 Proveedores',
   pedidos:         '🛒 Pedidos',
-  productosConteo: '📋 ProductosConteo',
   turnos:          '🍸 Turnos',
   conteoItems:     '📊 ConteoItems',
 };
@@ -457,26 +456,7 @@ function setupV24() {
 function setupV25() {
   var ss = SpreadsheetApp.getActiveSpreadsheet();
 
-  // 1. ProductosConteo
-  var pcSheet = ss.getSheetByName(SHEET.productosConteo);
-  if (!pcSheet) {
-    pcSheet = ss.insertSheet(SHEET.productosConteo);
-    pcSheet.getRange('A1:D1').setValues([['id','nombre','unidad','activo']]);
-    pcSheet.setFrozenRows(1);
-    pcSheet.getRange('A1:D1').setFontWeight('bold');
-    // Seed with common bar items
-    var defaults = [
-      ['PC001','Refresco Cola 355ml','pieza','SI'],
-      ['PC002','Refresco Cola 600ml','pieza','SI'],
-      ['PC003','Agua Mineral 500ml','pieza','SI'],
-      ['PC004','Agua Natural 500ml','pieza','SI'],
-      ['PC005','Leche entera 1L','litro','SI'],
-    ];
-    pcSheet.getRange(2, 1, defaults.length, 4).setValues(defaults);
-    Logger.log('ProductosConteo creada con ejemplos');
-  }
-
-  // 2. Turnos
+  // 1. Turnos
   var tSheet = ss.getSheetByName(SHEET.turnos);
   if (!tSheet) {
     tSheet = ss.insertSheet(SHEET.turnos);

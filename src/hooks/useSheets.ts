@@ -12,12 +12,11 @@ import {
   fetchGastos,
   fetchProveedores,
   fetchPedidos,
-  fetchProductosConteo,
   fetchTurnos,
   fetchConteoItems,
 } from '../api/sheets'
 import { today } from '../utils/dates'
-import type { StockBajo, Producto, Proveedor, Pedido, ProductoConteo, Turno, ConteoItem } from '../api/types'
+import type { StockBajo, Producto, Proveedor, Pedido, Turno, ConteoItem } from '../api/types'
 
 // Stale times
 const STALE_CATALOGO     = 5 * 60_000   // 5 min  (changes infrequently)
@@ -28,7 +27,6 @@ const STALE_BITACORA     = 5 * 60_000
 const STALE_GASTOS       = 2 * 60_000
 const STALE_PROVEEDORES      = 10 * 60_000
 const STALE_PEDIDOS          = 2 * 60_000
-const STALE_PRODUCTOS_CONTEO = 10 * 60_000
 const STALE_TURNOS           = 1 * 60_000
 const STALE_CONTEO_ITEMS     = 30_000  // 30 s — changes fast during shift
 
@@ -93,14 +91,6 @@ export function usePedidos() {
     queryKey:  ['pedidos'],
     queryFn:   fetchPedidos,
     staleTime: STALE_PEDIDOS,
-  })
-}
-
-export function useProductosConteo() {
-  return useQuery<ProductoConteo[]>({
-    queryKey:  ['productosConteo'],
-    queryFn:   fetchProductosConteo,
-    staleTime: STALE_PRODUCTOS_CONTEO,
   })
 }
 
@@ -185,7 +175,6 @@ export function useInvalidate() {
     gastos:      () => qc.invalidateQueries({ queryKey: ['gastos'] }),
     proveedores:     () => qc.invalidateQueries({ queryKey: ['proveedores'] }),
     pedidos:         () => qc.invalidateQueries({ queryKey: ['pedidos'] }),
-    productosConteo: () => qc.invalidateQueries({ queryKey: ['productosConteo'] }),
     turnos:          () => qc.invalidateQueries({ queryKey: ['turnos'] }),
     conteoItems:     () => qc.invalidateQueries({ queryKey: ['conteoItems'] }),
     all:             () => qc.invalidateQueries(),
