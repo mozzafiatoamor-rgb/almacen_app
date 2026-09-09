@@ -10,8 +10,8 @@ import FilterPills from '../components/shared/FilterPills'
 import EmptyState from '../components/shared/EmptyState'
 import Modal from '../components/layout/Modal'
 import ProductoForm from '../components/forms/ProductoForm'
-import AreaFilter, { AreaBadge } from '../components/shared/AreaFilter'
-import type { Producto, Area } from '../api/types'
+import { AreaBadge } from '../components/shared/AreaFilter'
+import type { Producto } from '../api/types'
 
 const PRIORIDAD_COLOR: Record<number, string> = {
   5: 'text-red bg-red/10 border-red/20',
@@ -23,13 +23,12 @@ const PRIORIDAD_COLOR: Record<number, string> = {
 
 export default function CatalogoPage() {
   const { data: catalogoAll = [], isLoading } = useCatalogo()
-  const { isAdmin, canManage, user, userArea, isAreaRestricted } = useAuth()
+  const { isAdmin, canManage, user, areaFiltro } = useAuth()
   const toast                                 = useToast()
   const invalidate                            = useInvalidate()
 
   const [query,         setQuery]        = useState('')
   const [catF,          setCatF]         = useState('todos')
-  const [areaF,         setAreaF]        = useState<Area | 'todos'>('todos')
   const [showArchived,  setShowArchived] = useState(false)
   const [modal,         setModal]        = useState<'add' | 'edit' | null>(null)
   const [editProd,      setEditProd]     = useState<Producto | null>(null)
@@ -44,17 +43,18 @@ export default function CatalogoPage() {
   const cats = useMemo(() => getCategoriasFromCatalogo(catalogo), [catalogo])
 
   const filtered = useMemo(() => {
-    const q            = query.toLowerCase()
-    const effectiveArea = isAreaRestricted ? userArea : areaF
+    const q = query.toLowerCase()
     return displayList.filter(p => {
       const matchQ    = !q || p.producto.toLowerCase().includes(q) || p.categoria.toLowerCase().includes(q)
       const matchCat  = catF === 'todos' || p.categoria === catF
-      const matchArea = effectiveArea === 'todos' || effectiveArea === 'Todas'
+      const matchArea = areaFiltro === 'Todas'
         ? true
-        : p.area === effectiveArea || p.area === 'Ambas'
+        : areaFiltro === 'General'
+          ? p.area === 'General'
+          : p.area === areaFiltro || p.area === 'Ambas'
       return matchQ && matchCat && matchArea
     })
-  }, [displayList, query, catF, areaF, isAreaRestricted, userArea])
+  }, [displayList, query, catF, areaFiltro])
 
   async function handleDelete(e: React.MouseEvent, p: Producto) {
     e.stopPropagation()
@@ -143,7 +143,6 @@ export default function CatalogoPage() {
       </div>
 
       <SearchBar value={query} onChange={setQuery} placeholder="Buscar producto o categoría…" />
-      {!isAreaRestricted && <AreaFilter active={areaF} onChange={setAreaF} />}
       <FilterPills options={cats} active={catF} onSelect={setCatF} />
 
       {filtered.length === 0

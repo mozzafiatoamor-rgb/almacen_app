@@ -4,8 +4,7 @@ import { useAuth } from '../auth/AuthContext'
 import SearchBar from '../components/shared/SearchBar'
 import FilterPills from '../components/shared/FilterPills'
 import EmptyState from '../components/shared/EmptyState'
-import AreaFilter, { AreaBadge } from '../components/shared/AreaFilter'
-import type { Area } from '../api/types'
+import { AreaBadge } from '../components/shared/AreaFilter'
 
 const PRIORIDAD_COLOR: Record<number, string> = {
   5: 'text-red bg-red/10 border-red/20',
@@ -17,29 +16,29 @@ const PRIORIDAD_COLOR: Record<number, string> = {
 
 export default function InventarioPage() {
   const { data: catalogo = [], isLoading } = useCatalogo()
-  const stockBajo                          = useStockBajo()
-  const { userArea, isAreaRestricted }     = useAuth()
+  const { areaFiltro }                     = useAuth()
+  const stockBajo                          = useStockBajo(areaFiltro)
 
   const [query, setQuery] = useState('')
   const [catF,  setCatF]  = useState('todos')
-  const [areaF, setAreaF] = useState<Area | 'todos'>('todos')
 
   const cats = useMemo(() => getCategoriasFromCatalogo(catalogo), [catalogo])
 
   const filtered = useMemo(() => {
-    const q            = query.toLowerCase()
-    const effectiveArea = isAreaRestricted ? userArea : areaF
+    const q = query.toLowerCase()
     return catalogo
       .filter(p => {
         const matchQ    = !q || p.producto.toLowerCase().includes(q) || p.categoria.toLowerCase().includes(q)
         const matchCat  = catF === 'todos' || p.categoria === catF
-        const matchArea = effectiveArea === 'todos' || effectiveArea === 'Todas'
+        const matchArea = areaFiltro === 'Todas'
           ? true
-          : p.area === effectiveArea || p.area === 'Ambas'
+          : areaFiltro === 'General'
+            ? p.area === 'General'
+            : p.area === areaFiltro || p.area === 'Ambas'
         return matchQ && matchCat && matchArea
       })
       .sort((a, b) => b.prioridad - a.prioridad)
-  }, [catalogo, query, catF, areaF, isAreaRestricted, userArea])
+  }, [catalogo, query, catF, areaFiltro])
 
   if (isLoading) return <div className="flex items-center justify-center py-16 text-text2 text-sm">⏳ Cargando…</div>
 
@@ -57,7 +56,6 @@ export default function InventarioPage() {
       </div>
 
       <SearchBar value={query} onChange={setQuery} placeholder="Buscar producto o categoría…" />
-      {!isAreaRestricted && <AreaFilter active={areaF} onChange={setAreaF} />}
       <FilterPills options={cats} active={catF} onSelect={setCatF} />
 
       {filtered.length === 0

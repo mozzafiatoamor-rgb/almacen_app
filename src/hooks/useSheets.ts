@@ -113,10 +113,21 @@ export function useConteoItems(turnoId?: string) {
 
 // ─── Derived data ─────────────────────────────────────────────────────────────
 
-export function useStockBajo(): StockBajo[] {
+/** Helper: true if product area matches the active filter */
+export function matchesAreaFiltro(productArea: string, filtro: string): boolean {
+  if (filtro === 'Todas') return true
+  if (filtro === 'General') return productArea === 'General'
+  return productArea === filtro || productArea === 'Ambas'
+}
+
+export function useStockBajo(areaFiltro = 'Todas'): StockBajo[] {
   const { data: catalogo = [] } = useCatalogo()
   return catalogo
-    .filter(p => p.stockMinimo > 0 && p.stockActual < p.stockMinimo)
+    .filter(p =>
+      p.stockMinimo > 0 &&
+      p.stockActual < p.stockMinimo &&
+      matchesAreaFiltro(p.area, areaFiltro)
+    )
     .map(p => ({
       categoria:   p.categoria,
       producto:    p.producto,
@@ -132,11 +143,11 @@ export function useStockBajo(): StockBajo[] {
     .sort((a, b) => b.prioridad - a.prioridad)
 }
 
-export function useHomeStats() {
+export function useHomeStats(areaFiltro = 'Todas') {
   const { data: movimientos = [] } = useMovimientos()
   const { data: mermas = [] }      = useMermas()
   const { data: catalogo = [] }    = useCatalogo()
-  const stockBajo                  = useStockBajo()
+  const stockBajo                  = useStockBajo(areaFiltro)
   const todayStr                   = today()
 
   const entHoy = movimientos

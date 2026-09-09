@@ -18,8 +18,8 @@ const AREA_CONFIG = [
 ] as const
 
 export default function HomePage({ onOpenModal, onSwitch }: Props) {
-  const { user }                   = useAuth()
-  const stats                      = useHomeStats()
+  const { user, areaFiltro }       = useAuth()
+  const stats                      = useHomeStats(areaFiltro)
   const { data: movimientos = [] } = useMovimientos()
   const todayStr                   = today()
   const [reporteOpen, setReporteOpen] = useState(false)

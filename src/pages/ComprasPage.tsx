@@ -64,11 +64,11 @@ function QtyInput({ value, onChange, min = 1 }: { value: number; onChange: (n: n
 // ─── Main page ────────────────────────────────────────────────────────────────
 
 export default function ComprasPage() {
-  const stockBajo                    = useStockBajo()
+  const { user, areaFiltro }         = useAuth()
+  const stockBajo                    = useStockBajo(areaFiltro)
   const { data: movimientos = [] }   = useMovimientos()
   const { data: proveedores = [] }   = useProveedores()
   const toast                        = useToast()
-  const { user }                     = useAuth()
   const invalidate                   = useInvalidate()
 
   // Build a quick lookup: proveedor name → telefono
