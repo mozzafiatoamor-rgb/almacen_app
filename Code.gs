@@ -24,6 +24,8 @@ var SHEET = {
   pedidos:         '🛒 Pedidos',
   turnos:          '🍸 Turnos',
   conteoItems:     '📊 ConteoItems',
+  inventarios:     '📋 Inventarios',
+  inventarioItems: '📊 InvItems',
 };
 
 // ─── Health check ─────────────────────────────────────────────────────────────
@@ -41,12 +43,13 @@ function doPost(e) {
     var ss     = SpreadsheetApp.getActiveSpreadsheet();
 
     switch (action) {
-      case 'append':     return handleAppend(ss, data);
-      case 'delete':     return handleDelete(ss, data);
-      case 'update':     return handleUpdate(ss, data);
-      case 'reconcile':  return handleReconcile(ss);
-      case 'sendReport': return handleSendReport(ss, data);
-      default:           return respond(false, 'Acción no reconocida: ' + action);
+      case 'append':      return handleAppend(ss, data);
+      case 'batchAppend': return handleBatchAppend(ss, data);
+      case 'delete':      return handleDelete(ss, data);
+      case 'update':      return handleUpdate(ss, data);
+      case 'reconcile':   return handleReconcile(ss);
+      case 'sendReport':  return handleSendReport(ss, data);
+      default:            return respond(false, 'Acción no reconocida: ' + action);
     }
   } catch (err) {
     return respond(false, err.toString());
@@ -85,6 +88,76 @@ function handleAppend(ss, data) {
   }
 
   return respond(true);
+}
+
+// ─── Batch Append ─────────────────────────────────────────────────────────────
+// Saves multiple rows across multiple sheets in a single POST call.
+// data.batches = [{ sheet: 'SheetName', rows: [[col1, col2, ...], ...] }, ...]
+// Side effects (stock updates for movimientos/mermas) are applied in bulk.
+
+function handleBatchAppend(ss, data) {
+  var batches = data.batches || [];
+  if (!batches.length) return respond(false, 'Sin lotes');
+
+  for (var b = 0; b < batches.length; b++) {
+    var batch = batches[b];
+    var sheet = ss.getSheetByName(batch.sheet);
+    if (!sheet) return respond(false, 'Pestaña no encontrada: ' + batch.sheet);
+    var rows = batch.rows || [];
+    if (!rows.length) continue;
+
+    // Write all rows at once (much faster than appendRow loop)
+    var lastRow = sheet.getLastRow();
+    var numCols = rows[0].length;
+    sheet.getRange(lastRow + 1, 1, rows.length, numCols).setValues(rows);
+
+    // Side effect: batch-update stock for movimientos
+    if (batch.sheet === SHEET.movimientos) {
+      var deltas = {};
+      for (var i = 0; i < rows.length; i++) {
+        var tipo = String(rows[i][3] || '');
+        var prod = String(rows[i][5] || '').trim().toLowerCase();
+        var qty  = Number(rows[i][6]) || 0;
+        if (!prod) continue;
+        if (!deltas[prod]) deltas[prod] = 0;
+        deltas[prod] += (tipo === 'Entrada' ? qty : -qty);
+      }
+      actualizarStockBatch(ss, deltas);
+    }
+
+    // Side effect: batch-update stock for mermas
+    if (batch.sheet === SHEET.mermas) {
+      var mDeltas = {};
+      for (var i = 0; i < rows.length; i++) {
+        var prod = String(rows[i][4] || '').trim().toLowerCase();
+        var qty  = Number(rows[i][5]) || 0;
+        if (!prod) continue;
+        if (!mDeltas[prod]) mDeltas[prod] = 0;
+        mDeltas[prod] += qty;
+      }
+      // Convert to negative deltas for mermas
+      var negDeltas = {};
+      for (var k in mDeltas) negDeltas[k] = -mDeltas[k];
+      actualizarStockBatch(ss, negDeltas);
+    }
+  }
+
+  return respond(true);
+}
+
+// Updates multiple product stocks in a single catalog scan (O(n) instead of O(n*m))
+function actualizarStockBatch(ss, deltas) {
+  var keys = Object.keys(deltas);
+  if (!keys.length) return;
+  var catalogo = ss.getSheetByName(SHEET.catalogo);
+  if (!catalogo) return;
+  var data = catalogo.getDataRange().getValues();
+  for (var i = 1; i < data.length; i++) {
+    var prod = String(data[i][2] || '').trim().toLowerCase();
+    if (!prod || !deltas.hasOwnProperty(prod)) continue;
+    var nuevo = Math.max(0, (Number(data[i][5]) || 0) + deltas[prod]);
+    catalogo.getRange(i + 1, 6).setValue(nuevo);
+  }
 }
 
 // ─── Delete ───────────────────────────────────────────────────────────────────
@@ -477,6 +550,51 @@ function setupV25() {
   }
 
   Logger.log('setupV25 completado OK');
+}
+
+// ═══════════════════════════════════════════════════════════════════════════════
+//  V2.6 SETUP — Run ONCE after deploying v2.6
+//  Creates '📋 Inventarios' and '📊 InvItems' sheets.
+// ═══════════════════════════════════════════════════════════════════════════════
+
+function setupV26() {
+  var ss = SpreadsheetApp.getActiveSpreadsheet();
+
+  // 1. Inventarios sheet
+  var invSheet = ss.getSheetByName(SHEET.inventarios);
+  if (!invSheet) {
+    invSheet = ss.insertSheet(SHEET.inventarios);
+    invSheet.getRange('A1:H1').setValues([[
+      'id', 'fecha', 'hora', 'responsable', 'area',
+      'totalProductos', 'totalConDiferencia', 'estado'
+    ]]);
+    invSheet.setFrozenRows(1);
+    invSheet.getRange('A1:H1').setFontWeight('bold');
+    invSheet.setColumnWidth(1, 100);
+    invSheet.setColumnWidth(4, 160);
+    Logger.log('Hoja Inventarios creada');
+  } else {
+    Logger.log('Hoja Inventarios ya existe');
+  }
+
+  // 2. InventarioItems sheet
+  var itemsSheet = ss.getSheetByName(SHEET.inventarioItems);
+  if (!itemsSheet) {
+    itemsSheet = ss.insertSheet(SHEET.inventarioItems);
+    itemsSheet.getRange('A1:I1').setValues([[
+      'id', 'inventarioId', 'producto', 'categoria',
+      'unidad', 'stockSistema', 'stockFisico', 'diferencia', 'area'
+    ]]);
+    itemsSheet.setFrozenRows(1);
+    itemsSheet.getRange('A1:I1').setFontWeight('bold');
+    itemsSheet.setColumnWidth(1, 100);
+    itemsSheet.setColumnWidth(3, 200);
+    Logger.log('Hoja InvItems creada');
+  } else {
+    Logger.log('Hoja InvItems ya existe');
+  }
+
+  Logger.log('setupV26 completado OK');
 }
 
 // ═══════════════════════════════════════════════════════════════════════════════

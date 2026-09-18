@@ -33,6 +33,8 @@ export const SHEET_NAMES = {
   gastos:      '💰 Gastos',
   proveedores: '🏪 Proveedores',
   pedidos:     '🛒 Pedidos',
-  turnos:      '🍸 Turnos',
-  conteoItems: '📊 ConteoItems',
+  turnos:          '🍸 Turnos',
+  conteoItems:     '📊 ConteoItems',
+  inventarios:     '📋 Inventarios',
+  inventarioItems: '📊 InvItems',
 } as const

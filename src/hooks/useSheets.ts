@@ -14,9 +14,11 @@ import {
   fetchPedidos,
   fetchTurnos,
   fetchConteoItems,
+  fetchInventarios,
+  fetchInventarioItems,
 } from '../api/sheets'
 import { today } from '../utils/dates'
-import type { StockBajo, Producto, Proveedor, Pedido, Turno, ConteoItem } from '../api/types'
+import type { StockBajo, Producto, Proveedor, Pedido, Turno, ConteoItem, InventarioFisico, InventarioItem } from '../api/types'
 
 // Stale times
 const STALE_CATALOGO     = 5 * 60_000   // 5 min  (changes infrequently)
@@ -29,6 +31,8 @@ const STALE_PROVEEDORES      = 10 * 60_000
 const STALE_PEDIDOS          = 2 * 60_000
 const STALE_TURNOS           = 1 * 60_000
 const STALE_CONTEO_ITEMS     = 30_000  // 30 s — changes fast during shift
+const STALE_INVENTARIOS      = 5 * 60_000
+const STALE_INVENTARIO_ITEMS = 5 * 60_000
 
 export function useCatalogo() {
   return useQuery<Producto[]>({
@@ -111,6 +115,23 @@ export function useConteoItems(turnoId?: string) {
   })
 }
 
+export function useInventarios() {
+  return useQuery<InventarioFisico[]>({
+    queryKey:  ['inventarios'],
+    queryFn:   () => fetchInventarios(),
+    staleTime: STALE_INVENTARIOS,
+  })
+}
+
+export function useInventarioItems(inventarioId?: string) {
+  return useQuery<InventarioItem[]>({
+    queryKey:  ['inventarioItems', inventarioId],
+    queryFn:   () => fetchInventarioItems(inventarioId),
+    staleTime: STALE_INVENTARIO_ITEMS,
+    enabled:   !!inventarioId,
+  })
+}
+
 // ─── Derived data ─────────────────────────────────────────────────────────────
 
 /** Helper: true if product area matches the active filter */
@@ -187,8 +208,10 @@ export function useInvalidate() {
     proveedores:     () => qc.invalidateQueries({ queryKey: ['proveedores'] }),
     pedidos:         () => qc.invalidateQueries({ queryKey: ['pedidos'] }),
     turnos:          () => qc.invalidateQueries({ queryKey: ['turnos'] }),
-    conteoItems:     () => qc.invalidateQueries({ queryKey: ['conteoItems'] }),
-    all:             () => qc.invalidateQueries(),
+    conteoItems:      () => qc.invalidateQueries({ queryKey: ['conteoItems'] }),
+    inventarios:      () => qc.invalidateQueries({ queryKey: ['inventarios'] }),
+    inventarioItems:  () => qc.invalidateQueries({ queryKey: ['inventarioItems'] }),
+    all:              () => qc.invalidateQueries(),
   }
 }
 

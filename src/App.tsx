@@ -29,7 +29,8 @@ import ReportesPage     from './pages/ReportesPage'
 import GastosPage       from './pages/GastosPage'
 import UsuariosPage     from './pages/UsuariosPage'
 import ProveedoresPage  from './pages/ProveedoresPage'
-import TurnoPage        from './pages/TurnoPage'
+import TurnoPage              from './pages/TurnoPage'
+import InventarioFisicoPage   from './pages/InventarioFisicoPage'
 
 import { useCatalogo, useMovimientos, useMermas } from './hooks/useSheets'
 import { getConfig, isConfigured, saveConfig } from './api/config'
@@ -144,7 +145,8 @@ function MainApp() {
             {tab === 'gastos'      && <GastosPage />}
             {tab === 'usuarios'    && <UsuariosPage />}
             {tab === 'proveedores' && <ProveedoresPage />}
-            {tab === 'turno'       && <TurnoPage />}
+            {tab === 'turno'          && <TurnoPage />}
+            {tab === 'levantamiento'  && <InventarioFisicoPage />}
           </motion.div>
         </AnimatePresence>
       </main>

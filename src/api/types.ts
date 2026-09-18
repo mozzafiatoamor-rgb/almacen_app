@@ -189,6 +189,35 @@ export interface Pedido {
   _row:           number
 }
 
+// ─── Inventario Físico ────────────────────────────────────────────────────────
+
+export type EstadoInventario = 'activo' | 'cerrado'
+
+export interface InventarioFisico {
+  id:                  string
+  fecha:               string
+  hora:                string
+  responsable:         string
+  area:                string
+  totalProductos:      number
+  totalConDiferencia:  number
+  estado:              EstadoInventario
+  _row:                number
+}
+
+export interface InventarioItem {
+  id:           string
+  inventarioId: string
+  producto:     string
+  categoria:    string
+  unidad:       string
+  stockSistema: number
+  stockFisico:  number
+  diferencia:   number
+  area:         string
+  _row:         number
+}
+
 // ─── Navigation ───────────────────────────────────────────────────────────────
 
 export type Tab =
@@ -199,6 +228,7 @@ export type Tab =
   | 'pedidos'
   | 'proveedores'
   | 'turno'
+  | 'levantamiento'
   | 'mermas'
   | 'catalogo'
   | 'bitacora'

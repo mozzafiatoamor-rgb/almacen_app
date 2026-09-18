@@ -19,6 +19,9 @@ import type {
   TipoTurno,
   FaseConteo,
   ConteoItem,
+  InventarioFisico,
+  InventarioItem,
+  EstadoInventario,
   Area,
 } from './types'
 
@@ -225,6 +228,44 @@ export async function fetchConteoItems(turnoId?: string): Promise<ConteoItem[]> 
       _row:          i + 2,
     }))
     .filter(c => c.producto && (!turnoId || c.turnoId === turnoId))
+}
+
+// ─── Inventarios Físicos ──────────────────────────────────────────────────────
+
+export async function fetchInventarios(): Promise<InventarioFisico[]> {
+  const rows = await readRange(SHEET_NAMES.inventarios, 'A2:H500')
+  return rows
+    .map((r, i) => ({
+      id:                 r[0] ?? '',
+      fecha:              normDate(r[1] ?? ''),
+      hora:               r[2] ?? '',
+      responsable:        r[3] ?? '',
+      area:               r[4] ?? 'Todas',
+      totalProductos:     parseInt(r[5]) || 0,
+      totalConDiferencia: parseInt(r[6]) || 0,
+      estado:             (r[7] ?? 'cerrado') as EstadoInventario,
+      _row:               i + 2,
+    }))
+    .filter(inv => inv.id)
+    .reverse()
+}
+
+export async function fetchInventarioItems(inventarioId?: string): Promise<InventarioItem[]> {
+  const rows = await readRange(SHEET_NAMES.inventarioItems, 'A2:I3000')
+  return rows
+    .map((r, i) => ({
+      id:           r[0] ?? '',
+      inventarioId: r[1] ?? '',
+      producto:     r[2] ?? '',
+      categoria:    r[3] ?? '',
+      unidad:       r[4] ?? '',
+      stockSistema: parseFloat(r[5]) || 0,
+      stockFisico:  parseFloat(r[6]) || 0,
+      diferencia:   parseFloat(r[7]) || 0,
+      area:         r[8] ?? '',
+      _row:         i + 2,
+    }))
+    .filter(it => it.producto && (!inventarioId || it.inventarioId === inventarioId))
 }
 
 // ─── Bitácora ─────────────────────────────────────────────────────────────────

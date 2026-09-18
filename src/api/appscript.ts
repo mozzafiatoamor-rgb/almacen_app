@@ -148,6 +148,21 @@ export async function updateConteoItem(row: number, values: (string | number)[])
   await updateRow(SHEET_NAMES.conteoItems, row, values)
 }
 
+// ─── Inventario Físico ────────────────────────────────────────────────────────
+
+export interface BatchItem {
+  sheet: string
+  rows:  (string | number)[][]
+}
+
+/**
+ * Saves multiple rows across multiple sheets in a single POST call.
+ * Handles stock side-effects server-side in one catalog scan.
+ */
+export async function batchAppend(batches: BatchItem[]): Promise<void> {
+  await post({ action: 'batchAppend', batches })
+}
+
 // ─── Stock reconciliation ─────────────────────────────────────────────────────
 
 export async function reconcileStock(): Promise<void> {
